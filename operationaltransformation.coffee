@@ -1,4 +1,5 @@
 
+exports = window if window?
 
 class Operation
 
@@ -63,7 +64,7 @@ type: (o) ->
 		return false
 	
 split: (first, second) ->
-	sys.puts("splitting ${sys.inspect(first)} against ${sys.inspect(second)}")
+	#sys.puts("splitting ${sys.inspect(first)} against ${sys.inspect(second)}")
 	if first.type == 'add'
 		return [
 			[first,false],
@@ -81,7 +82,7 @@ split: (first, second) ->
 		]
 		
 transform: (first, second) ->
-	sys.puts("transforming ${sys.inspect(first)} against ${sys.inspect(second)}")
+	#sys.puts("transforming ${sys.inspect(first)} against ${sys.inspect(second)}")
 	if type(first) == 'add'
 		return [first, new OpRetain(first.length())]
 	
@@ -124,7 +125,7 @@ class Change
 				bop = b.shift()
 				
 			parts = split(aop, bop)
-			sys.puts("parts: ${sys.inspect(parts)}")
+			#sys.puts("parts: ${sys.inspect(parts)}")
 			
 			aop = parts[0][1]
 			bop = parts[1][1]
@@ -154,7 +155,7 @@ class Change
 		
 
 	merge: (other) ->
-		sys.puts("merge ${sys.inspect(this)}, ${sys.inspect(other)}")
+		#sys.puts("merge ${sys.inspect(this)}, ${sys.inspect(other)}")
 		outops = []
 		baseops = op for op in @operations
 		
@@ -162,14 +163,14 @@ class Change
 			i = 0
 			while i<offset
 				op = baseops.shift()
-				sys.puts("popped ${sys.inspect(op)}")
+				#sys.puts("popped ${sys.inspect(op)}")
 				i += op.inserts-op.removes
 				outops.push(op) if output
 			if i>offset
 				outops.pop() if output
 				i -= op.inserts - op.removes
 				[a, b] = op.split(offset-i)
-				sys.puts("split, ${offset-i}, ${sys.inspect a} ${sys.inspect b}")
+				#sys.puts("split, ${offset-i}, ${sys.inspect a} ${sys.inspect b}")
 				outops.push(a) if output
 				baseops.unshift(b)
 		
@@ -197,21 +198,10 @@ class Document
 	normalize: ->
 		@setText(@getText())
 			
-			
-sys: require('sys')
-doc: new Document()
-doc.setText('qwerty')
-doc.applyChange(new Change([new OpRetain(1), new OpAdd('a'), new OpRemove(1), new OpRetain(4)]))
-sys.puts("text: '${doc.getText()}'")
-doc.applyChange(new Change([new OpRetain(3), new OpAdd('NewEnd'), new OpRemove(3)]))
-doc.applyChange(new Change([new OpRetain(6), new OpAdd("ZZZ"), new OpRetain(3)]))
-sys.puts(sys.inspect(doc.state))
-sys.puts("text: '${doc.getText()}'")
 
-c1: new Change([new OpRetain(1), new OpAdd('a')])
-c2: new Change([new OpAdd('b'), new OpRetain(1), new OpAdd('z')])
-
-[a, b] = c1.transform(c2)
-sys.puts(sys.inspect([a.operations, b.operations]))
-
+exports.OpRetain = OpRetain
+exports.OpAdd = OpAdd
+exports.OpRemove = OpRemove
+exports.Document = Document
+exports.Change = Change
 
