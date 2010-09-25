@@ -29,25 +29,43 @@ window.offsetLengthToBespinRange: (editor, offset, length) ->
 		end: charOffsetToBespinPosition(editor, offset+length)
 	}
 	
-window.onBespinLoad: ->
-	
+setTimeout (->
 	window.editor = document.getElementById("editor").bespin.editor
+	window.editor2 = document.getElementById("editor2").bespin.editor
 	
-	editor.prevtext = editor.value
+	window.conn = new DummyConn()
+	window.doc = new BespinDocument('testdoc', conn, editor)
+	window.doc2 = new BespinDocument('testdoc', conn, editor2)
+), 1000
 	
-	editor.textChanged.add (oldRange, newRange, newValue)->
-		[offset, remove] = bespinRangeToOffsetLength(editor.prevtext, oldRange)
+class BespinDocument extends Document
+	constructor: (id, conn, editor) ->
+		super(id, conn)
+		@editor = editor
+		@editor.prevtext = editor.value
 		
-		editor.prevtext = editor.value
-		
-		l = [new OpRetain(offset)]
-		
-		if remove
-			l.push(new OpRemove(remove))
+		@editor.textChanged.add (oldRange, newRange, newValue) =>
+			return if @editor.ignoreChanges
 			
-		if newValue
-			l.push(new OpAdd(newValue))
+			[offset, remove] = bespinRangeToOffsetLength(@editor.prevtext, oldRange)
+			@editor.prevtext = editor.value
+			
+			l = [new OpRetain(offset)]
+			if remove
+				l.push(new OpRemove(remove))
+			if newValue
+				l.push(new OpAdd(newValue))		
+			l.push(new OpRetain(@editor.prevtext.length - offset - newValue.length))
+					
+			change = new Change(l, @version, @makeVersion())
+			
+			@applyChangeUp(change)
+				
+			return undefined
 		
-		console.log(l)
-		
-		return undefined
+	applyChangeDown: (change) ->
+		super(change)
+		@editor.ignoreChanges = true
+		@editor.value = @text #TODO: keep selection, cursor
+		@editor.ignoreChanges = false
+

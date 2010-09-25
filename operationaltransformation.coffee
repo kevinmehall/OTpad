@@ -6,8 +6,8 @@ class Operation
 
 class OpRetain extends Operation
 	constructor: (count) ->
-		if count == 0
-			throw new Exception("Useless retain")
+#		if count == 0
+#			throw new Exception("Useless retain")
 		@type: 'retain'
 		@inserts: count
 		@removes: 0
@@ -106,8 +106,10 @@ transform: (first, second) ->
 	
 
 class Change
-	constructor: (operations) ->
+	constructor: (operations, fromVersion, toVersion) ->
 		@operations: operations
+		@fromVersion: fromVersion
+		@toVersion: toVersion
 
 	transform: (other) ->
 		a = i for i in @operations
@@ -150,18 +152,17 @@ class Change
 			bprime.push(bop)
 			bop = false
 		
-		return [new Change(aprime), new Change(bprime)]
+		return [new Change(aprime, @toVersion, ), new Change(bprime, other.toVersion, )]
 			
 		
 
 	merge: (other) ->
-		#sys.puts("merge ${sys.inspect(this)}, ${sys.inspect(other)}")
 		outops = []
 		baseops = op for op in @operations
 		
 		go: (offset, output) ->
 			i = 0
-			while i<offset
+			while i<offset and baseops.length
 				op = baseops.shift()
 				#sys.puts("popped ${sys.inspect(op)}")
 				i += op.inserts-op.removes
@@ -182,21 +183,61 @@ class Change
 				outops.push(m) if m
 				go(operation.removes, no)
 				
-		return new Change(outops)
+		return new Change(outops, @fromVersion, other.toVersion)
+
+class DummyConn
+	constructor: ->
+		@documents = []
+		
+	register: (doc) ->
+		@documents.push(doc)
+		
+	send: (change) ->
+		console.log('send', change)
+		for doc in @documents
+			doc.applyChangeDown(change)
+		
 				
 			
 class Document
+	constructor: (id, conn) ->
+		@id: id
+		@text: ''
+		@version: '0'
+		@versionHistory: {}
+		@conn = conn
+		@conn.register(this)
+		
 	applyChange: (change) ->
-		@state = @state.merge(change)
+		if change.docid? and change.docid != @id
+			throw new Error("Tried to merge against wrong document")
+		if change.toVersion == @version
+			return
+		if change.fromVersion != @version
+			throw new Error("Tried to merge out of order")
+		@setFromChange(@state().merge(change))
 		
-	setText: (text) -> 
-		@state = new Change([new OpAdd(text)])
+	state: -> 
+		new Change([new OpAdd(@text)], '0', @version)
 		
-	getText: ->
-		(i.addString for i in @state.operations).join('')
+	setFromChange: (state) ->
+		@text = (i.addString for i in state.operations).join('')
+		@version = state.toVersion
+		@versionHistory[@version] = state
 		
-	normalize: ->
-		@setText(@getText())
+	applyChangeUp: (change) ->
+		@applyChange(change)
+		@conn.send(change)
+		console.log(@text)
+		
+	applyChangeDown: (change) ->
+		console.log 'applychangedown', change, @version
+		@applyChange(change)
+		
+	makeVersion: ->
+		parseInt(@version, 10) + 1
+		
+		
 			
 
 exports.OpRetain = OpRetain
@@ -204,4 +245,5 @@ exports.OpAdd = OpAdd
 exports.OpRemove = OpRemove
 exports.Document = Document
 exports.Change = Change
+exports.DummyConn = DummyConn
 
