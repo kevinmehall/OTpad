@@ -2,16 +2,29 @@
 <html>
 <head>
 
-<link id="bespin_base" href="bespin">
-<link href="bespin/BespinEmbedded.css" type="text/css" rel="stylesheet">
-<script type="text/javascript" src="bespin/BespinEmbedded.js"></script>
-
-
 <style>
-  body { padding: 20px; font-family: Calibri, Helvetica, Arial; }
-  h1 { border-bottom: 1px solid #ddd; font-size:120%; }
-  .bespin { margin: 0; padding: 0; border: 0; height: 300px; border: 10px solid #ddd; -moz-border-radius: 10px; -webkit-border-radius: 10px; width: 40%; display: inline-block}
-  .displaybutton { margin-top: 1em; }
+
+.editor{
+	width: 100%;
+	min-height: 400px;
+	border: 1px solid #ccc;
+}
+
+.caret{
+	border-left: 1px solid red;
+	margin-right: -1px;
+	height: 1.8em;
+	width: 1px;
+}
+
+#t{
+	width: 100%;
+}
+
+#t td{
+	width: 50%;
+}
+
 </style>
 
 </head>
@@ -20,8 +33,11 @@
 <script src='operationaltransformation.js'></script>
 <script src='ui.js'></script>
 
-<div id="editor" class="bespin" data-bespinoptions='{ "settings": { "tabstop": 4 }, "syntax": "js", "stealFocus": true }'></div>
-<div id="editor2" class="bespin" data-bespinoptions='{ "settings": { "tabstop": 4 }, "syntax": "js", "stealFocus": true }'></div>
+<table id='t'><tr><td>
+<div id='editor' class='editor'></div>
+</td><td>
+<div id='editor2' class='editor'></div></td>
+</tr></table>
 
 </body>
 </html>

@@ -56,6 +56,17 @@ class OpRemove extends Operation
 			[false, this]
 		else
 			[new OpRemove(offset), new OpRemove(@inserts-offset)]
+			
+class OpAddCaret extends Operation
+	constructor: (uid) ->
+		@uid = uid
+		@inserts: 1
+		@removes: 0
+		@type = 'caret'
+		
+	length: -> 1
+	merged: -> this
+	split: -> [false, this]
 
 type: (o) ->
 	if o
@@ -200,9 +211,10 @@ class DummyConn
 				
 			
 class Document
-	constructor: (id, conn) ->
+	constructor: (id, conn, uid, state) ->
 		@id: id
-		@text: ''
+		@uid: uid
+		@state: state
 		@version: '0'
 		@versionHistory: {}
 		@conn = conn
@@ -215,33 +227,89 @@ class Document
 			return
 		if change.fromVersion != @version
 			throw new Error("Tried to merge out of order")
-		@setFromChange(@state().merge(change))
+		@setFromChange(@state.merge(change))
 		
-	state: -> 
-		new Change([new OpAdd(@text)], '0', @version)
+	#text: -> ((i.addString if i.type=='add' else '') for i in @state.operations).join('')
 		
 	setFromChange: (state) ->
-		@text = (i.addString for i in state.operations).join('')
+		@state = state
 		@version = state.toVersion
 		@versionHistory[@version] = state
 		
 	applyChangeUp: (change) ->
 		@applyChange(change)
 		@conn.send(change)
-		console.log(@text)
 		
 	applyChangeDown: (change) ->
-		console.log 'applychangedown', change, @version
 		@applyChange(change)
 		
 	makeVersion: ->
 		parseInt(@version, 10) + 1
+		
+	findMyCaret: ->
+		offset = 0
+		for i in @state.operations
+			if i.type == 'caret' and i.uid == @uid
+				return offset
+			else
+				offset += i.inserts
+	
+	length: ->
+		offset = 0
+		for i in @state.operations
+			offset += i.inserts
+		return offset
+	
+	spliceAtCaret: (remove, add) ->
+		offset = @findMyCaret()
+		
+		l = [new OpRetain(offset-remove)]
+		if remove
+			l.push(new OpRemove(remove))
+		if add
+			l.push(new OpAdd(add))		
+		l.push(new OpRetain(@length() - offset))
+				
+		change = new Change(l, @version, @makeVersion())
+		
+		@applyChangeUp(change)
+		
+	moveCaretTo: (newpos) ->
+		pos = @findMyCaret()
+		
+		l = []
+		
+		if newpos < pos
+			l.push(new OpRetain(newpos))
+			l.push(new OpAddCaret(@uid))
+			l.push(new OpRetain(pos-newpos))
+			l.push(new OpRemove(1))
+			l.push(new OpRetain(@length() - pos))
+		else
+			l.push(new OpRetain(pos))
+			l.push(new OpRemove(1))
+			l.push(new OpRetain(newpos - pos))
+			l.push(new OpAddCaret(@uid))
+			l.push(new OpRetain(@length() - newpos))
+			
+		change = new Change(l, @version, @makeVersion())
+		@applyChangeUp(change)
+		
+	moveCaretBy: (offset) ->
+		pos = @findMyCaret()+offset
+		if pos < 0
+			pos = 0
+		l = @length()
+		if pos>l
+			pos = l
+		@moveCaretTo(pos)
 		
 		
 			
 
 exports.OpRetain = OpRetain
 exports.OpAdd = OpAdd
+exports.OpAddCaret = OpAddCaret
 exports.OpRemove = OpRemove
 exports.Document = Document
 exports.Change = Change

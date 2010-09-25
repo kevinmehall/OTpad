@@ -1,71 +1,62 @@
-window.bespinPositionToCharOffset: (str, position) ->
-	lines = str.split('\n')
+window.onload: ->
+	window.editor = document.getElementById("editor")
+	window.editor2 = document.getElementById("editor2")
 	
-	chars = 0
-	for i in lines.slice(0, position.row)
-		chars += i.length + 1
-
-	return chars+position.col
-	
-window.bespinRangeToOffsetLength: (str, range) ->
-	start = bespinPositionToCharOffset(str, range.start)
-	end = bespinPositionToCharOffset(str, range.end)
-	return [start, end-start]
-	
-window.charOffsetToBespinPosition: (editor, offset) ->
-	lines = editor.value.split('\n')
-	
-	chars = offset
-	line = 0
-	for i in lines
-		if chars <= i.length
-			return {row: line, col: chars}
-		chars -= i.length + 1
-		line += 1
-		
-window.offsetLengthToBespinRange: (editor, offset, length) ->
-	return {
-		start: charOffsetToBespinPosition(editor, offset)
-		end: charOffsetToBespinPosition(editor, offset+length)
-	}
-	
-setTimeout (->
-	window.editor = document.getElementById("editor").bespin.editor
-	window.editor2 = document.getElementById("editor2").bespin.editor
-	
+	state = new Change([new OpAddCaret('1'), new OpAddCaret('2')], '0', '0')
 	window.conn = new DummyConn()
-	window.doc = new BespinDocument('testdoc', conn, editor)
-	window.doc2 = new BespinDocument('testdoc', conn, editor2)
-), 1000
+	window.doc = new EditorDocument('testdoc', conn, '1', state, editor)
+	window.doc2 = new EditorDocument('testdoc', conn, '2', state, editor2)
 	
-class BespinDocument extends Document
-	constructor: (id, conn, editor) ->
-		super(id, conn)
-		@editor = editor
-		@editor.prevtext = editor.value
-		
-		@editor.textChanged.add (oldRange, newRange, newValue) =>
-			return if @editor.ignoreChanges
-			
-			[offset, remove] = bespinRangeToOffsetLength(@editor.prevtext, oldRange)
-			@editor.prevtext = editor.value
-			
-			l = [new OpRetain(offset)]
-			if remove
-				l.push(new OpRemove(remove))
-			if newValue
-				l.push(new OpAdd(newValue))		
-			l.push(new OpRetain(@editor.prevtext.length - offset - newValue.length))
-					
-			change = new Change(l, @version, @makeVersion())
-			
-			@applyChangeUp(change)
+	
+class EditorDocument extends Document
+	constructor: (id, conn, uid, state, div) ->
+		super(id, conn, uid, state)
+		@div = div
+		@div.style.whitespace = 'pre'
+		@div.style.position = 'relative'
+		@div.setAttribute('tabindex', 0)
 				
-			return undefined
+		@update()
 		
-	applyChangeDown: (change) ->
+		@div.onclick = @focus
+		
+		@div.onkeyup = (event) =>
+			if event.keyCode == 8
+				@spliceAtCaret(1, '')
+			else if event.keyCode == 37
+				@moveCaretBy(-1)
+			else if event.keyCode == 39
+				@moveCaretBy(1)
+		
+		@div.onkeypress  = (event) =>
+				@spliceAtCaret(0, String.fromCharCode(event.keyCode))
+		
+	focus: =>
+		@div.focus()
+		
+		
+	applyChange: (change) ->
 		super(change)
-		@editor.ignoreChanges = true
-		@editor.value = @text #TODO: keep selection, cursor
-		@editor.ignoreChanges = false
-
+		@update()
+		
+		
+	update: ->
+		div = @div
+		div.innerHTML = ''
+		
+		mkSpan: (text) ->
+			s = document.createElement('span')
+			s.innerText = text
+			div.appendChild(s)
+		
+		mkCaret: (uid) ->
+			caret = document.createElement('span')
+			caret.setAttribute('class', 'caret')
+			div.appendChild(caret)
+			
+		for i in @state.operations
+			if i.type == 'add'
+				mkSpan(i.addString)	
+			else if i.type == 'caret'
+				mkCaret(i.uid)
+			
