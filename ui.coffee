@@ -1,22 +1,63 @@
 window.onload: ->
 	window.editor = document.getElementById("editor")
-	window.editor2 = document.getElementById("editor2")
 	
-	state = new Change([new OpAddCaret('1'), new OpAddCaret('2')], '0', '0')
-	window.conn = new DummyConn()
-	window.doc = new EditorDocument('testdoc', conn, '1', state, editor)
-	window.doc2 = new EditorDocument('testdoc', conn, '2', state, editor2)
+	myid = '' + Math.floor(Math.random()*1000000)
+	
+	window.conn = new SocketConn()
+	window.doc = new EditorDocument('testdoc', conn, myid, editor)
+
+class SocketConn
+	constructor: ->
+		@socket = new io.Socket(null, {port: 8123})
+		@socket.connect()
+		@socket.on 'connect', =>
+			console.log('connect')
+			
+		@socket.on 'message', (body) =>
+			msg = JSON.parse(body)
+			switch msg.type
+				when 'change'
+					@send(msg.change, yes)
+				when 'state'
+					console.log('received state')
+					for doc in @documents
+						doc.setFromChange(deserializeChange(msg.state))
+				else
+					console.log("error", msg)
+			
+		@socket.on 'disconnect', =>
+			console.log('disconnect')
+			
+		@documents = []
+		
+	register: (doc) ->
+		@documents.push(doc)
+		@socket.send JSON.stringify {
+			type: 'join'
+			docid: doc.id
+			uid: doc.uid
+		}
+		
+	send: (change, fromserver) ->
+		if not fromserver
+			console.log(change.docid)
+			@socket.send JSON.stringify {
+				docid: change.docid
+				type: 'change'
+				change: change
+			}
+		
+		for doc in @documents
+			doc.applyChangeDown(deserializeChange(change))
 	
 	
 class EditorDocument extends Document
-	constructor: (id, conn, uid, state, div) ->
-		super(id, conn, uid, state)
+	constructor: (id, conn, uid, div) ->
+		super(id, conn, uid)
 		@div = div
 		@div.style.whitespace = 'pre'
 		@div.style.position = 'relative'
 		@div.setAttribute('tabindex', 0)
-				
-		@update()
 		
 		@div.onclick = @focus
 		

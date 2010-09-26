@@ -1,5 +1,8 @@
 
-exports = window if window?
+if window?
+	exports = window
+else
+	exports = module.exports = {}
 
 class Operation
 
@@ -67,6 +70,13 @@ class OpAddCaret extends Operation
 	length: -> 1
 	merged: -> this
 	split: -> [false, this]
+	
+opMap: {
+	'add': OpAdd
+	'caret': OpAddCaret
+	'remove': OpRemove
+	'retain': OpRetain
+}
 
 type: (o) ->
 	if o
@@ -94,10 +104,10 @@ split: (first, second) ->
 		
 transform: (first, second) ->
 	#sys.puts("transforming ${sys.inspect(first)} against ${sys.inspect(second)}")
-	if type(first) == 'add'
+	if type(first) == 'add' or type(first) == 'caret'
 		return [first, new OpRetain(first.length())]
 	
-	if type(second) == 'add'
+	if type(second) == 'add' or type(second) == 'caret'
 		return [new OpRetain(second.length()), second]
 		
 	if type(first) == 'retain' and type(second) == 'retain'
@@ -117,10 +127,11 @@ transform: (first, second) ->
 	
 
 class Change
-	constructor: (operations, fromVersion, toVersion) ->
+	constructor: (operations, docid, fromVersion, toVersion) ->
 		@operations: operations
 		@fromVersion: fromVersion
 		@toVersion: toVersion
+		@docid: docid
 
 	transform: (other) ->
 		a = i for i in @operations
@@ -163,7 +174,7 @@ class Change
 			bprime.push(bop)
 			bop = false
 		
-		return [new Change(aprime, @toVersion, ), new Change(bprime, other.toVersion, )]
+		return [new Change(aprime, @docid, @toVersion, ), new Change(bprime, @docid, other.toVersion, )]
 			
 		
 
@@ -194,7 +205,13 @@ class Change
 				outops.push(m) if m
 				go(operation.removes, no)
 				
-		return new Change(outops, @fromVersion, other.toVersion)
+		return new Change(outops, @docid, @fromVersion, other.toVersion)
+
+exports.deserializeChange: (c)->
+	c.__proto__ = Change.prototype
+	for i in c.operations
+		i.__proto__ = opMap[i.type].prototype
+	return c
 
 class DummyConn
 	constructor: ->
@@ -211,14 +228,15 @@ class DummyConn
 				
 			
 class Document
-	constructor: (id, conn, uid, state) ->
+	constructor: (id, conn, uid) ->
 		@id: id
 		@uid: uid
-		@state: state
 		@version: '0'
 		@versionHistory: {}
 		@conn = conn
-		@conn.register(this)
+		
+		if @conn
+			@conn.register(this)
 		
 	applyChange: (change) ->
 		if change.docid? and change.docid != @id
@@ -226,15 +244,21 @@ class Document
 		if change.toVersion == @version
 			return
 		if change.fromVersion != @version
-			throw new Error("Tried to merge out of order")
+			throw new Error("Tried to merge out of order (from $@version, expecting $change.fromVersion)")
 		@setFromChange(@state.merge(change))
 		
 	#text: -> ((i.addString if i.type=='add' else '') for i in @state.operations).join('')
 		
 	setFromChange: (state) ->
+		first = not @state?
 		@state = state
 		@version = state.toVersion
 		@versionHistory[@version] = state
+		@update()
+		if first
+			#initial load
+			@applyChangeUp(new Change([new OpAddCaret(@uid),new OpRetain(@length())], @id, @version, @makeVersion()))
+			
 		
 	applyChangeUp: (change) ->
 		@applyChange(change)
@@ -244,7 +268,7 @@ class Document
 		@applyChange(change)
 		
 	makeVersion: ->
-		parseInt(@version, 10) + 1
+		''+(parseInt(@version, 10) + 1)
 		
 	findMyCaret: ->
 		offset = 0
@@ -270,7 +294,7 @@ class Document
 			l.push(new OpAdd(add))		
 		l.push(new OpRetain(@length() - offset))
 				
-		change = new Change(l, @version, @makeVersion())
+		change = new Change(l, @id, @version, @makeVersion())
 		
 		@applyChangeUp(change)
 		
@@ -292,7 +316,7 @@ class Document
 			l.push(new OpAddCaret(@uid))
 			l.push(new OpRetain(@length() - newpos))
 			
-		change = new Change(l, @version, @makeVersion())
+		change = new Change(l, @id, @version, @makeVersion())
 		@applyChangeUp(change)
 		
 	moveCaretBy: (offset) ->
@@ -303,6 +327,8 @@ class Document
 		if pos>l
 			pos = l
 		@moveCaretTo(pos)
+		
+	update: () -> false
 		
 		
 			
