@@ -10,17 +10,30 @@
 	border: 1px solid #ccc;
 }
 
-.caret{
-	border-left: 1px solid red;
+.caret, .mycaret{
+	border-left: 1px solid black;
 	margin-right: -1px;
 	height: 1.8em;
 	width: 1px;
+	opacity: 0.5;
+}
+
+.mycaret{
+	border-color: red;
+	opacity: 1;
+	z-index: 10;
 }
 
 </style>
 
 </head>
 <body>
+
+<script>
+if (!window.console){
+	console = {log:function(a){alert(a)}}
+}
+</script>
 
 <script src="/socket.io/socket.io.js"></script> 
 <script src='operationaltransformation.js'></script>

@@ -8,8 +8,14 @@ ot:		require('./operationaltransformation')
 server = http.createServer (req, res) ->
 	path = url.parse(req.url).pathname
 	
+	if path.indexOf('.js') == -1
+		sys.log("loading page $path")
+		path = '/index.html'
+		
+	
 	fs.readFile __dirname + path, (err, data) ->
 		if (err)
+			sys.log(err)
 			res.writeHead(404)
 			res.write("404")
 			res.end()

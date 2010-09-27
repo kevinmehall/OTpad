@@ -40,7 +40,18 @@ class OpAdd extends Operation
 		return new OpAdd(@addString)
 		
 	split: (offset) ->
-		return [new OpAdd(@addString.slice(0, offset)), new OpAdd(@addString.slice(offset))] 
+		return [new OpAdd(@addString.slice(0, offset)), new OpAdd(@addString.slice(offset))]
+		
+class OpNewline extends Operation
+	constructor: ->
+		@type: 'newline'
+		@inserts: 1
+		@removes: 0
+		
+	length: -> @inserts
+	merged: -> this
+	split: -> [false, this]
+	
 		
 class OpRemove extends Operation
 	constructor: (n) ->
@@ -76,6 +87,7 @@ opMap: {
 	'caret': OpAddCaret
 	'remove': OpRemove
 	'retain': OpRetain
+	'newline': OpNewline
 }
 
 type: (o) ->
@@ -104,10 +116,10 @@ split: (first, second) ->
 		
 transform: (first, second) ->
 	#sys.puts("transforming ${sys.inspect(first)} against ${sys.inspect(second)}")
-	if type(first) == 'add' or type(first) == 'caret'
+	if type(first) == 'add' or type(first) == 'caret' or type(first) == 'newline'
 		return [first, new OpRetain(first.length())]
 	
-	if type(second) == 'add' or type(second) == 'caret'
+	if type(second) == 'add' or type(second) == 'caret' or type(second) == 'newline'
 		return [new OpRetain(second.length()), second]
 		
 	if type(first) == 'retain' and type(second) == 'retain'
@@ -291,7 +303,10 @@ class Document
 		if remove
 			l.push(new OpRemove(remove))
 		if add
-			l.push(new OpAdd(add))		
+			if add == '\r'
+				l.push(new OpNewline())
+			else
+				l.push(new OpAdd(add))		
 		l.push(new OpRetain(@length() - offset))
 				
 		change = new Change(l, @id, @version, @makeVersion())
