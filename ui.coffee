@@ -50,7 +50,7 @@ class SocketConn
 			doc.applyChangeDown(deserializeChange(change))
 	
 	
-class EditorDocument extends Document
+class EditorDocument extends OTUserEndpoint
 	constructor: (id, conn, uid, div) ->
 		super(id, conn, uid)
 		@div = div
@@ -111,7 +111,7 @@ class EditorDocument extends Document
 			
 		for i in @state.operations
 			switch i.type
-				when 'add'
+				when 'str'
 					mkSpan(i.addString)	
 				when 'caret'
 					mkCaret(i.uid)

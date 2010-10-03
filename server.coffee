@@ -51,7 +51,7 @@ socket.on 'connection', (client) ->
 						i.socket.send(JSON.stringify(msg))
 				when 'join'
 					if not documents[msg.docid]
-						doc = new ot.Document(msg.docid, null, 'server')
+						doc = new ot.OTUserEndpoint(msg.docid, null, 'server')
 						doc.state = new ot.Change([], msg.docid, '0', '0')
 						documents[msg.docid] = doc
 						sys.puts("Created document $msg.docid")

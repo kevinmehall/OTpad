@@ -185,6 +185,8 @@ class Change
 		aprime = []
 		bprime = []
 		
+		# aop and bop are the operations pending processing. 
+		# when set to false, the next operation is pulled from the list
 		aop = false
 		bop = false
 		
@@ -198,12 +200,13 @@ class Change
 						
 			transformed = transform(parts[0][0], parts[1][0])
 			
+			# add the transformed operations (if they exist) to the output
 			if transformed[0]
-				aprime.push(transformed[0])
-			
+				aprime.push(transformed[0])			
 			if transformed[1]
 				bprime.push(transformed[1])
 				
+			# the leftover parts of the split operations become the next pending operations
 			aop = parts[0][1]
 			bop = parts[1][1]
 				
@@ -322,7 +325,7 @@ class OTUserEndpoint extends OTDocument
 			if i.type == 'caret' and i.uid == @uid
 				return offset
 			else
-				offset += i.inserts
+				offset += i.length()
 	
 	spliceAtCaret: (remove, add) ->
 		offset = @findMyCaret()
