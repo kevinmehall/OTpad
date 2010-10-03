@@ -21,7 +21,6 @@ class OpRetain extends Operation
 		
 	length: -> @count
 	cursorDelta: -> @count
-	tlength: -> @count
 		
 	split: (offset) ->
 		if offset >= @count
@@ -36,7 +35,6 @@ class OpRetain extends Operation
 class OpAdd extends Operation
 	isAdd: -> true
 	merged: -> return this
-	tlength: -> 0
 
 class OpAddString extends OpAdd
 	constructor: (addString) ->
@@ -70,7 +68,6 @@ class OpRemove extends Operation
 		@removes: n
 		
 	length: -> @removes
-	tlength: -> @removes
 	cursorDelta: -> -1*@removes
 	
 	merged: -> false
@@ -121,8 +118,8 @@ split: (first, second) ->
 			   ]
 	   else
 			   return [
-					   first.split(second.tlength())
-					   second.split(first.tlength())
+					   first.split(second.length())
+					   second.split(first.length())
 			   ]
 
 		
