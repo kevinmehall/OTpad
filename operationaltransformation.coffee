@@ -240,16 +240,11 @@ class DummyConn
 		
 				
 			
-class Document
-	constructor: (id, conn, uid) ->
+class OTDocument
+	constructor: (id) ->
 		@id: id
-		@uid: uid
 		@version: '0'
 		@versionHistory: {}
-		@conn = conn
-		
-		if @conn
-			@conn.register(this)
 		
 	applyChange: (change) ->
 		if change.docid? and change.docid != @id
@@ -261,18 +256,35 @@ class Document
 		@setFromChange(@state.merge(change))
 		
 	setFromChange: (state) ->
-		first = not @state?
 		@state = state
 		@version = state.toVersion
 		@versionHistory[@version] = state
+
+	text: () ->
+		((if i.addString then i.addString else '') for i in @state.operations).join('')
+				
+	makeVersion: ->
+		''+(parseInt(@version, 10) + 1)
+	
+	
+class OTUserEndpoint extends OTDocument
+	constructor: (id, conn, uid) ->
+		super(id)
+		@conn = conn
+		@uid = uid
+		
+		if @conn
+			@conn.register(this)
+		
+		
+	setFromChange: (change) ->
+		first = not @state?
+		super(change)
 		@update()
 		if first
 			#initial load
 			@applyChangeUp(new Change([new OpAddCaret(@uid),new OpRetain(@length())], @id, @version, @makeVersion()))
-
-	text: () ->
-		((if i.addString then i.addString else '') for i in @state.operations).join('')
-		
+	
 	applyChangeUp: (change) ->
 		@applyChange(change)
 		if @conn
@@ -280,10 +292,7 @@ class Document
 		
 	applyChangeDown: (change) ->
 		@applyChange(change)
-		
-	makeVersion: ->
-		''+(parseInt(@version, 10) + 1)
-		
+				
 	findMyCaret: ->
 		offset = 0
 		for i in @state.operations
@@ -354,7 +363,8 @@ exports.OpRetain = OpRetain
 exports.OpAdd = OpAdd
 exports.OpAddCaret = OpAddCaret
 exports.OpRemove = OpRemove
-exports.Document = Document
+exports.OTDocument = OTDocument
+exports.OTUserEndpoint = OTUserEndpoint
 exports.Change = Change
 exports.DummyConn = DummyConn
 
