@@ -4,13 +4,16 @@ if window?
 else
 	exports = module.exports = {}
 
-class Operation
+warn: (msg) ->
+	if console
+		console.warning(msg)
 
+class Operation
 
 class OpRetain extends Operation
 	constructor: (count) ->
-#		if count == 0
-#			throw new Exception("Useless retain")
+		if count == 0
+			warn("Useless retain")
 		@type: 'retain'
 		@inserts: count
 		@removes: 0
@@ -97,7 +100,6 @@ type: (o) ->
 		return false
 	
 split: (first, second) ->
-	#sys.puts("splitting ${sys.inspect(first)} against ${sys.inspect(second)}")
 	if first.type == 'add'
 		return [
 			[first,false],
@@ -161,7 +163,6 @@ class Change
 				bop = b.shift()
 				
 			parts = split(aop, bop)
-			#sys.puts("parts: ${sys.inspect(parts)}")
 			
 			aop = parts[0][1]
 			bop = parts[1][1]
@@ -256,10 +257,8 @@ class Document
 		if change.toVersion == @version
 			return
 		if change.fromVersion != @version
-			throw new Error("Tried to merge out of order (from $@version, expecting $change.fromVersion)")
+			throw new Error("Tried to merge out of order (at $@version, revision from $change.fromVersion to $change.toVersion)")
 		@setFromChange(@state.merge(change))
-		
-	#text: -> ((i.addString if i.type=='add' else '') for i in @state.operations).join('')
 		
 	setFromChange: (state) ->
 		first = not @state?
@@ -270,11 +269,14 @@ class Document
 		if first
 			#initial load
 			@applyChangeUp(new Change([new OpAddCaret(@uid),new OpRetain(@length())], @id, @version, @makeVersion()))
-			
+
+	text: () ->
+		((if i.addString then i.addString else '') for i in @state.operations).join('')
 		
 	applyChangeUp: (change) ->
 		@applyChange(change)
-		@conn.send(change)
+		if @conn
+			@conn.send(change)
 		
 	applyChangeDown: (change) ->
 		@applyChange(change)
