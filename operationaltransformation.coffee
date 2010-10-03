@@ -109,6 +109,30 @@ opMap: {
 	'newline': OpNewline
 }
 
+coalesceOps: (l) ->
+	# Run through a list of operations, and mash together neighboring operations
+	# of the same type.
+	
+	prevop = null
+	out = []
+	
+	for i in l
+		if prevop and i.type == prevop.type
+			if i.type == 'str' #TODO: formatting must be the same
+				prevop = new OpAddString(prevop.addString + i.addString)
+				continue
+			else if i.type == 'retain'
+				prevop = new OpRetain(prevop.count + i.count)
+				continue
+			else if i.type == 'remove'
+				prevop = new OpRemove(prevop.removes + i.removes)
+				continue
+		if prevop then out.push(prevop)
+		prevop = i
+	if prevop then out.push(prevop)
+	return out
+		
+
 split: (first, second) ->
 	# Takes two operations and splits them so they can be matched against each 
 	# other by Change.transform. Returns a nested array. ret[0] is the two 
@@ -251,7 +275,7 @@ class Change
 				outops.push(m) if m
 				go(operation.removes, no)
 				
-		return new Change(outops.concat(baseops), @docid, @fromVersion, other.toVersion)
+		return new Change(coalesceOps(outops.concat(baseops)), @docid, @fromVersion, other.toVersion)
 
 exports.deserializeChange: (c)->
 	c.__proto__ = Change.prototype
