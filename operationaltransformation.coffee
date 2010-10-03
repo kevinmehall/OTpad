@@ -5,53 +5,61 @@ else
 	exports = module.exports = {}
 
 warn: (msg) ->
-	if console
-		console.warning(msg)
+	true
+	#if console
+	#	console.warning(msg)
 
 class Operation
+	isAdd: -> undefined
 
 class OpRetain extends Operation
 	constructor: (count) ->
 		if count == 0
 			warn("Useless retain")
 		@type: 'retain'
-		@inserts: count
-		@removes: 0
+		@count: count
 		
-	length: -> @inserts
+	length: -> @count
+	cursorDelta: -> @count
+	tlength: -> @count
 		
 	split: (offset) ->
-		if offset >= @length()
+		if offset >= @count
 			[this, false]
 		else if offset == 0
 			[false, this]
 		else
-			[new OpRetain(offset), new OpRetain(@inserts-offset)]
+			[new OpRetain(offset), new OpRetain(@count-offset)]
 		
 	merged: -> false
 
 class OpAdd extends Operation
+	isAdd: -> true
+	merged: -> return this
+	tlength: -> 0
+
+class OpAddString extends OpAdd
 	constructor: (addString) ->
-		@type: 'add'
-		@inserts: addString.length
-		@removes: 0
+		@type: 'str'
 		@addString: addString
 		
-	length: -> @inserts
-		
-	merged: ->
-		return new OpAdd(@addString)
+	length: -> @addString.length
+	cursorDelta: -> @addString.length
 		
 	split: (offset) ->
-		return [new OpAdd(@addString.slice(0, offset)), new OpAdd(@addString.slice(offset))]
+		a = @addString.slice(0, offset)
+		b = @addString.slice(offset)
+		a = if a then new OpAddString(a) else false
+		b = if b then new OpAddString(b) else false
+		return [a, b]
 		
-class OpNewline extends Operation
+class OpNewline extends OpAdd
 	constructor: ->
 		@type: 'newline'
-		@inserts: 1
-		@removes: 0
+		@addString = '\n'
 		
-	length: -> @inserts
+	length: -> 1
+	cursorDelta: -> 1
 	merged: -> this
 	split: -> [false, this]
 	
@@ -59,10 +67,11 @@ class OpNewline extends Operation
 class OpRemove extends Operation
 	constructor: (n) ->
 		@type: 'remove'
-		@inserts: 0
 		@removes: n
 		
-	length: -> removes
+	length: -> @removes
+	tlength: -> @removes
+	cursorDelta: -> -1*@removes
 	
 	merged: -> false
 	
@@ -74,19 +83,19 @@ class OpRemove extends Operation
 		else
 			[new OpRemove(offset), new OpRemove(@inserts-offset)]
 			
-class OpAddCaret extends Operation
+class OpAddCaret extends OpAdd
 	constructor: (uid) ->
 		@uid = uid
-		@inserts: 1
-		@removes: 0
 		@type = 'caret'
+		@addString = "|"
 		
 	length: -> 1
+	cursorDelta: -> 1
 	merged: -> this
 	split: -> [false, this]
 	
 opMap: {
-	'add': OpAdd
+	'str': OpAddString
 	'caret': OpAddCaret
 	'remove': OpRemove
 	'retain': OpRetain
@@ -100,28 +109,30 @@ type: (o) ->
 		return false
 	
 split: (first, second) ->
-	if first.type == 'add'
-		return [
-			[first,false],
-			[false,second]
-		]
-	else if second.type == 'add'
-		return [
-			[false,first],
-			[second,false]
-		]
-	else
-		return [
-			first.split(second.length())
-			second.split(first.length())
-		]
+	   if first.isAdd()
+			   return [
+					   [first,false],
+					   [false,second]
+			   ]
+	   else if second.isAdd()
+			   return [
+					   [false,first],
+					   [second,false]
+			   ]
+	   else
+			   return [
+					   first.split(second.tlength())
+					   second.split(first.tlength())
+			   ]
+
 		
 transform: (first, second) ->
-	#sys.puts("transforming ${sys.inspect(first)} against ${sys.inspect(second)}")
-	if type(first) == 'add' or type(first) == 'caret' or type(first) == 'newline'
+	if first and first.isAdd()
+		if second then error()
 		return [first, new OpRetain(first.length())]
 	
-	if type(second) == 'add' or type(second) == 'caret' or type(second) == 'newline'
+	if second and second.isAdd()
+		if first then error()
 		return [new OpRetain(second.length()), second]
 		
 	if type(first) == 'retain' and type(second) == 'retain'
@@ -135,6 +146,8 @@ transform: (first, second) ->
 		
 	if type(first) == 'retain' and type(second) == 'remove'
 		return [false, second]
+		
+	error('fell off end')
 		
 	return [false, false]
 				
@@ -163,10 +176,7 @@ class Change
 				bop = b.shift()
 				
 			parts = split(aop, bop)
-			
-			aop = parts[0][1]
-			bop = parts[1][1]
-			
+						
 			transformed = transform(parts[0][0], parts[1][0])
 			
 			if transformed[0]
@@ -175,19 +185,22 @@ class Change
 			if transformed[1]
 				bprime.push(transformed[1])
 				
-		while a.length
+			aop = parts[0][1]
+			bop = parts[1][1]
+				
+		while a.length or aop
 			if not aop
 				aop = a.shift()
 			aprime.push(aop)
 			aop = false
 			
-		while b.length
+		while b.length or bop
 			if not bop
 				bop = b.shift()
 			bprime.push(bop)
 			bop = false
 		
-		return [new Change(aprime, @docid, @toVersion, ), new Change(bprime, @docid, other.toVersion, )]
+		return [new Change(bprime, @docid, @toVersion, 'merged'), new Change(aprime, @docid, other.toVersion, 'merged')]
 			
 		
 
@@ -199,26 +212,24 @@ class Change
 			i = 0
 			while i<offset and baseops.length
 				op = baseops.shift()
-				#sys.puts("popped ${sys.inspect(op)}")
-				i += op.inserts-op.removes
+				i += op.cursorDelta()
 				outops.push(op) if output
 			if i>offset
 				outops.pop() if output
-				i -= op.inserts - op.removes
+				i -= op.cursorDelta()
 				[a, b] = op.split(offset-i)
-				#sys.puts("split, ${offset-i}, ${sys.inspect a} ${sys.inspect b}")
 				outops.push(a) if output
 				baseops.unshift(b)
 		
 		for operation in other.operations
 			if operation.type == 'retain'
-				go(operation.inserts, yes)
+				go(operation.count, yes)
 			else
 				m: operation.merged()
 				outops.push(m) if m
 				go(operation.removes, no)
 				
-		return new Change(outops, @docid, @fromVersion, other.toVersion)
+		return new Change(outops.concat(baseops), @docid, @fromVersion, other.toVersion)
 
 exports.deserializeChange: (c)->
 	c.__proto__ = Change.prototype
@@ -226,20 +237,7 @@ exports.deserializeChange: (c)->
 		i.__proto__ = opMap[i.type].prototype
 	return c
 
-class DummyConn
-	constructor: ->
-		@documents = []
-		
-	register: (doc) ->
-		@documents.push(doc)
-		
-	send: (change) ->
-		console.log('send', change)
-		for doc in @documents
-			doc.applyChangeDown(change)
-		
-				
-			
+						
 class OTDocument
 	constructor: (id) ->
 		@id: id
@@ -262,6 +260,12 @@ class OTDocument
 
 	text: () ->
 		((if i.addString then i.addString else '') for i in @state.operations).join('')
+	
+	length: ->
+		offset = 0
+		for i in @state.operations
+			offset += i.inserts
+		return offset			
 				
 	makeVersion: ->
 		''+(parseInt(@version, 10) + 1)
@@ -301,12 +305,6 @@ class OTUserEndpoint extends OTDocument
 			else
 				offset += i.inserts
 	
-	length: ->
-		offset = 0
-		for i in @state.operations
-			offset += i.inserts
-		return offset
-	
 	spliceAtCaret: (remove, add) ->
 		offset = @findMyCaret()
 		
@@ -317,7 +315,7 @@ class OTUserEndpoint extends OTDocument
 			if add == '\r'
 				l.push(new OpNewline())
 			else
-				l.push(new OpAdd(add))		
+				l.push(new OpAddString(add))		
 		l.push(new OpRetain(@length() - offset))
 				
 		change = new Change(l, @id, @version, @makeVersion())
@@ -360,11 +358,10 @@ class OTUserEndpoint extends OTDocument
 			
 
 exports.OpRetain = OpRetain
-exports.OpAdd = OpAdd
+exports.OpAddString = OpAddString
 exports.OpAddCaret = OpAddCaret
 exports.OpRemove = OpRemove
 exports.OTDocument = OTDocument
 exports.OTUserEndpoint = OTUserEndpoint
 exports.Change = Change
-exports.DummyConn = DummyConn
 
