@@ -13,6 +13,8 @@ class Operation
 	isAdd: -> undefined
 
 class OpRetain extends Operation
+	# Retain operation inserts [count] characters from previous version of the document
+	
 	constructor: (count) ->
 		if count == 0
 			warn("Useless retain")
@@ -37,6 +39,8 @@ class OpAdd extends Operation
 	merged: -> return this
 
 class OpAddString extends OpAdd
+	# AddString operation inserts a string
+	
 	constructor: (addString) ->
 		@type: 'str'
 		@addString: addString
@@ -52,6 +56,8 @@ class OpAddString extends OpAdd
 		return [a, b]
 		
 class OpNewline extends OpAdd
+	# Newline operation inserts a line break
+	
 	constructor: ->
 		@type: 'newline'
 		@addString = '\n'
@@ -63,6 +69,8 @@ class OpNewline extends OpAdd
 	
 		
 class OpRemove extends Operation
+	# Remove operation skips over [n] characters from previous version so they are not included
+
 	constructor: (n) ->
 		@type: 'remove'
 		@removes: n
@@ -81,6 +89,8 @@ class OpRemove extends Operation
 			[new OpRemove(offset), new OpRemove(@inserts-offset)]
 			
 class OpAddCaret extends OpAdd
+	# Inserts a user's caret. Counts as a character
+	
 	constructor: (uid) ->
 		@uid = uid
 		@type = 'caret'
@@ -99,49 +109,61 @@ opMap: {
 	'newline': OpNewline
 }
 
-type: (o) ->
-	if o
-		return o.type
-	else
-		return false
-	
 split: (first, second) ->
-	   if first.isAdd()
-			   return [
-					   [first,false],
-					   [false,second]
-			   ]
-	   else if second.isAdd()
-			   return [
-					   [false,first],
-					   [second,false]
-			   ]
-	   else
-			   return [
-					   first.split(second.length())
-					   second.split(first.length())
-			   ]
+	# Takes two operations and splits them so they can be matched against each 
+	# other by Change.transform. Returns a nested array. ret[0] is the two 
+	# pieces of the first operation, ret[1] is the two pieces of the second.
+	# Operations that add to the document are never paired against anything, 
+	# as there is no matching operation from the other document
+	 
+	if first.isAdd()
+		return [
+			[first,false],
+			[false,second]
+		]
+	else if second.isAdd()
+		return [
+			[false,first],
+			[second,false]
+		]
+	else
+		return [
+			first.split(second.length())
+			second.split(first.length())
+		]
 
 		
 transform: (first, second) ->
+	# transforms two operations against each other. Assumes that the two
+	# operations have already been split and are the same length.
+	# Takes an operation from A and B each and returns an
+	# operation for A' and B'
+	# Returning a false operation means no operation is inserted
+	
+	# keep the insert, add retain in opposing document because everything
+	# must be shifted due to the addition
+	# only one change can exist (as enforced by skip) because there are 
+	# no corresponding characters on the opposing change, so we must insert the
+	# retain and not replace anything here
 	if first and first.isAdd()
 		if second then error()
 		return [first, new OpRetain(first.length())]
-	
 	if second and second.isAdd()
 		if first then error()
 		return [new OpRetain(second.length()), second]
 		
-	if type(first) == 'retain' and type(second) == 'retain'
+	# both take same changes from parent version, so leave retains alone
+	if first.type == 'retain' and second.type == 'retain'
 		return [first, second]
 		
-	if type(first) == 'remove' and type(second) == 'remove'
+	# both remove the same thing, so it doesn't need to be removed again
+	if first.type == 'remove' and second.type == 'remove'
 		return [false, false]
 		
-	if type(first) == 'remove' and type(second) == 'retain'
-		return [first, false]
-		
-	if type(first) == 'retain' and type(second) == 'remove'
+	# the characters no longer exist, so don't retain them any more
+	if first.type == 'remove' and second.type == 'retain'
+		return [first, false]	
+	if first.type == 'retain' and second.type == 'remove'
 		return [false, second]
 		
 	error('fell off end')
@@ -261,7 +283,7 @@ class OTDocument
 	length: ->
 		offset = 0
 		for i in @state.operations
-			offset += i.inserts
+			offset += i.length()
 		return offset			
 				
 	makeVersion: ->
