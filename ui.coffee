@@ -89,6 +89,10 @@ class EditorDocument extends OTUserEndpoint
 			if keycode >= 32 or keycode==13
 				@spliceAtCaret(0, String.fromCharCode(keycode))
 				
+		@div.onpaste = (event) =>
+			console.log(event, event.clipboardData.getData('text/plain'))
+			@spliceAtCaret(0, event.clipboardData.getData('text/plain'))
+				
 		
 	focus: =>
 		@div.focus()
