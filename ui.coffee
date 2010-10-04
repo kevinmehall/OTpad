@@ -4,7 +4,7 @@ window.onload: ->
 	myid = '' + Math.floor(Math.random()*1000000)
 	
 	window.conn = new SocketConn()
-	window.doc = new EditorDocument('testdoc', conn, myid, editor)
+	window.doc = new EditorDocument(document.location.pathname, conn, myid, editor)
 
 class SocketConn
 	constructor: ->
