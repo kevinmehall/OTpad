@@ -65,29 +65,27 @@ class EditorDocument extends OTUserEndpoint
 		@div.onclick: (e) =>
 			@focus()
 			if e.target.nodeName.toLowerCase() == 'span'
-				charWidth=e.target.offsetWidth/e.target.innerText.length
+				charWidth=e.target.offsetWidth/e.target.innerHTML.length
 				x = e.offsetX - e.target.offsetLeft
-				#console.log(charWidth, x, x/charWidth,  e.target.ot_offset)
 				pos = Math.round(x/charWidth) + e.target.ot_offset
 				if pos > @findMyCaret()
 					pos -= 1
 				@moveCaretTo( pos )
 			
 		
-		@div.onkeyup = (event) =>
+		@div.onkeydown = (event) =>
 			if event.keyCode == 8
 				@spliceAtCaret(1, '')
 			else if event.keyCode == 37
 				@moveCaretBy(-1)
 			else if event.keyCode == 39
 				@moveCaretBy(1)
-			else
-				return true
-			event.preventDefault()
-			
+
 		
 		@div.onkeypress  = (event) =>
 			keycode = event.keyCode || event.which
+			if keycode >=37 and keycode <= 40 and not event.shiftKey
+				return # fix Firefox
 			if keycode >= 32 or keycode==13
 				@spliceAtCaret(0, String.fromCharCode(keycode))
 				
