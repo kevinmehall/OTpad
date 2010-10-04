@@ -58,7 +58,17 @@ class EditorDocument extends OTUserEndpoint
 		@div.style.position = 'relative'
 		@div.setAttribute('tabindex', 0)
 		
-		@div.onclick = @focus
+		@div.onclick: (e) =>
+			@focus()
+			if e.target.nodeName.toLowerCase() == 'span'
+				charWidth=e.target.offsetWidth/e.target.innerText.length
+				x = e.offsetX - e.target.offsetLeft
+				#console.log(charWidth, x, x/charWidth,  e.target.ot_offset)
+				pos = Math.round(x/charWidth) + e.target.ot_offset
+				if pos > @findMyCaret()
+					pos -= 1
+				@moveCaretTo( pos )
+			
 		
 		@div.onkeyup = (event) =>
 			if event.keyCode == 8
@@ -76,6 +86,7 @@ class EditorDocument extends OTUserEndpoint
 			keycode = event.keyCode || event.which
 			if keycode >= 32 or keycode==13
 				@spliceAtCaret(0, String.fromCharCode(keycode))
+				
 		
 	focus: =>
 		@div.focus()
@@ -89,11 +100,13 @@ class EditorDocument extends OTUserEndpoint
 	update: ->
 		div = @div
 		div.innerHTML = ''
+		offset = 0
 		
 		mkSpan: (text) ->
 			s = document.createElement('span')
 			s.style.whiteSpace = 'pre'
 			d = document.createTextNode(text)
+			s.ot_offset=offset
 			s.appendChild(d)
 			div.appendChild(s)
 			
@@ -117,4 +130,5 @@ class EditorDocument extends OTUserEndpoint
 					mkCaret(i.uid)
 				when 'newline'
 					mkBr()
+			offset+=i.length()
 			
