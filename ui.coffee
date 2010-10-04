@@ -8,9 +8,12 @@ window.onload: ->
 
 class SocketConn
 	constructor: ->
+		@connected = false
+		
 		@socket = new io.Socket(null, {port: 8123})
 		@socket.connect()
 		@socket.on 'connect', =>
+			@connected = true
 			console.log('connect')
 			
 		@socket.on 'message', (body) =>
@@ -26,6 +29,7 @@ class SocketConn
 					console.log("error", msg)
 			
 		@socket.on 'disconnect', =>
+			@connected = false
 			console.log('disconnect')
 			
 		@documents = []

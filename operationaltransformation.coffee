@@ -287,8 +287,9 @@ exports.deserializeChange: (c)->
 class OTDocument
 	constructor: (id) ->
 		@id: id
-		@version: '0'
+		@version: 'null'
 		@versionHistory: {}
+		@setFromChange(new Change([], @id, 'null', 'null'))
 		
 	applyChange: (change) ->
 		if change.docid? and change.docid != @id
@@ -312,9 +313,15 @@ class OTDocument
 		for i in @state.operations
 			offset += i.length()
 		return offset			
-				
-	makeVersion: ->
-		''+(parseInt(@version, 10) + 1)
+		
+	findCaret: (uid) ->
+		offset = 0
+		for i in @state.operations
+			if i.type == 'caret' and i.uid == uid
+				return offset
+			else
+				offset += i.length()
+		return -1
 	
 	
 class OTUserEndpoint extends OTDocument
@@ -322,19 +329,14 @@ class OTUserEndpoint extends OTDocument
 		super(id)
 		@conn = conn
 		@uid = uid
+		@firstChange = true
 		
 		if @conn
 			@conn.register(this)
+			
+	makeVersion: ->
+		"$@uid-${new Date().getTime()}-${Math.round(Math.random()*100000)}"
 		
-		
-	setFromChange: (change) ->
-		first = not @state?
-		super(change)
-		@update()
-		if first
-			#initial load
-			@applyChangeUp(new Change([new OpAddCaret(@uid),new OpRetain(@length())], @id, @version, @makeVersion()))
-	
 	applyChangeUp: (change) ->
 		@applyChange(change)
 		if @conn
@@ -342,14 +344,11 @@ class OTUserEndpoint extends OTDocument
 		
 	applyChangeDown: (change) ->
 		@applyChange(change)
-				
-	findMyCaret: ->
-		offset = 0
-		for i in @state.operations
-			if i.type == 'caret' and i.uid == @uid
-				return offset
-			else
-				offset += i.length()
+		if @firstChange
+			@firstChange = false
+			@applyChangeUp(new Change([new OpAddCaret(@uid),new OpRetain(@length())], @id, @version, @makeVersion()))
+		
+	findMyCaret: -> @findCaret(@uid)
 	
 	spliceAtCaret: (remove, add) ->
 		offset = @findMyCaret()
@@ -400,6 +399,43 @@ class OTUserEndpoint extends OTDocument
 		
 	update: () -> false
 		
+class OTServerEndpoint extends OTDocument
+	constructor: (docid) ->
+		super(docid)
+		@clients = {}
+		
+	makeVersion: ->
+		"server-${new Date().getTime()}-${Math.round(Math.random()*100000)}"
+		
+	join: (client) ->
+		@clients[client.uid] = client
+		client.socket.send JSON.stringify {
+			type: 'change'
+			docId: @id
+			change: @state
+		}
+		
+	handleChange: (change, fromUid) ->
+		@applyChange(change)
+		
+		msg = JSON.stringify {
+				type: 'change'
+				docId: @id
+				change: change
+			}
+			
+		for i of @clients
+			if i != fromUid # don't send back to autor
+				@clients[i].socket.send(msg)
+				
+		#TODO: OT
+		
+	leave: (client) ->
+		pos = @findCaret(client.uid)
+		delete @clients[client.uid]
+		if pos > 0
+			@handleChange(new Change([new OpRetain(pos), new OpRemove(1)], @id, @version, @makeVersion()))
+			
 		
 			
 
@@ -409,5 +445,6 @@ exports.OpAddCaret = OpAddCaret
 exports.OpRemove = OpRemove
 exports.OTDocument = OTDocument
 exports.OTUserEndpoint = OTUserEndpoint
+exports.OTServerEndpoint = OTServerEndpoint
 exports.Change = Change
 

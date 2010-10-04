@@ -32,7 +32,17 @@ server = http.createServer (req, res) ->
 clients = []
 documents = {}
 
-socket = io.listen(server) 
+getDocument: (docid) ->
+	if not documents[docid]
+		doc = new ot.OTServerEndpoint(docid, null, 'server')
+		documents[docid] = doc
+		sys.puts("Created document $docid")
+	else
+		doc = documents[docid]
+	return doc
+
+socket = io.listen(server)
+ 
 socket.on 'connection', (client) -> 
 	sys.puts('connected')
 	
@@ -46,27 +56,20 @@ socket.on 'connection', (client) ->
 			switch msg.type
 				when 'change'
 					doc = documents[msg.docid]
-					doc.applyChangeDown(ot.deserializeChange(msg.change))
-					for i in clients
-						i.socket.send(JSON.stringify(msg))
+					doc.handleChange(ot.deserializeChange(msg.change))
 				when 'join'
-					if not documents[msg.docid]
-						doc = new ot.OTUserEndpoint(msg.docid, null, 'server')
-						doc.state = new ot.Change([], msg.docid, '0', '0')
-						documents[msg.docid] = doc
-						sys.puts("Created document $msg.docid")
-					else
-						doc = documents[msg.docid]
-					c.socket.send JSON.stringify {
-						type: 'state'
-						state: doc.state
-					}
+					doc = getDocument(msg.docid)
+					c.uid = msg.uid
+					c.document = doc
+					doc.join(c)
 					
 		catch error
-			sys.puts("Error: ", error)
+			sys.puts("Error: ", error.message, error.stack)
 	
 		
 	client.on 'disconnect', ->
+		if c.document?
+			c.document.leave(c)
 		clients.splice(clients.indexOf(c), 1)
 		
 server.listen(8123)
