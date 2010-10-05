@@ -8,17 +8,23 @@ ot:		require('./operationaltransformation')
 server = http.createServer (req, res) ->
 	path = url.parse(req.url).pathname
 	
-	if path.indexOf('.js') == -1
-		sys.log("loading page $path")
-		path = '/index.html'
-		
+	error: (err) ->
+		sys.log("$path -  $err")
+		res.writeHead(404)
+		res.write("404")
+		res.end()
 	
+	if not (/^\/[a-zA-Z0-9-_.]+$/).test(path)
+		error("Invalid file")
+		return
+	
+	if path.indexOf('.js') == -1
+		sys.log("Loading document $path")
+		path = '/index.html'
+				
 	fs.readFile __dirname + path, (err, data) ->
 		if (err)
-			sys.log(err)
-			res.writeHead(404)
-			res.write("404")
-			res.end()
+			error(err)
 		else
 			ctype = 'text/javascript'
 			if path.indexOf('.js')!=1
