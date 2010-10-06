@@ -14,17 +14,12 @@ class SocketConn
 		@socket.connect()
 		@socket.on 'connect', =>
 			@connected = true
-			console.log('connect')
 			
 		@socket.on 'message', (body) =>
 			msg = JSON.parse(body)
 			switch msg.type
 				when 'change'
 					@send(msg.change, yes)
-				when 'state'
-					console.log('received state')
-					for doc in @documents
-						doc.setFromChange(deserializeChange(msg.state))
 				else
 					console.log("error", msg)
 			
@@ -109,9 +104,9 @@ class EditorDocument extends OTUserEndpoint
 	update: (change) ->
 		oldCaretPos = @caretPosition() || 0
 		caretPos = change.offsetPoint(oldCaretPos)
-		console.log(change, oldCaretPos, caretPos)
 		div = @div
 		div.innerHTML = ''
+		div.ot_offset = 0
 		offset = 0
 				
 		lineDiv = document.createElement('div')
@@ -144,9 +139,8 @@ class EditorDocument extends OTUserEndpoint
 			offset+=i.length()
 			
 		
-		sel = document.getSelection()
+		sel = window.getSelection()
 		range = document.createRange()
-		console.log('range', caretNode, caretPos - caretNodeOffs)
 		range.setStart(caretNode, caretPos - caretNodeOffs)
 		range.setEnd(caretNode, caretPos - caretNodeOffs)
 		#sel.removeAllRanges()
