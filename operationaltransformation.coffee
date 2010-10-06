@@ -23,6 +23,9 @@ class OpRetain extends Operation
 		
 	length: -> @count
 	cursorDelta: -> @count
+	
+	movesOldCursor: -> @count
+	movesNewCursor: -> @count
 		
 	split: (offset) ->
 		if offset >= @count
@@ -47,6 +50,9 @@ class OpAddString extends OpAdd
 		
 	length: -> @addString.length
 	cursorDelta: -> @addString.length
+	
+	movesOldCursor: -> 0
+	movesNewCursor: -> @addString.length
 		
 	split: (offset) ->
 		a = @addString.slice(0, offset)
@@ -64,6 +70,10 @@ class OpNewline extends OpAdd
 		
 	length: -> 1
 	cursorDelta: -> 1
+	
+	movesOldCursor: -> 0
+	movesNewCursor: -> 1
+	
 	merged: -> this
 	split: -> [false, this]
 	
@@ -78,6 +88,9 @@ class OpRemove extends Operation
 	length: -> @removes
 	cursorDelta: -> -1*@removes
 	
+	movesOldCursor: -> @removes
+	movesNewCursor: -> 0
+	
 	merged: -> false
 	
 	split: (offset) ->
@@ -88,22 +101,9 @@ class OpRemove extends Operation
 		else
 			[new OpRemove(offset), new OpRemove(@inserts-offset)]
 			
-class OpAddCaret extends OpAdd
-	# Inserts a user's caret. Counts as a character
-	
-	constructor: (uid) ->
-		@uid = uid
-		@type = 'caret'
-		@addString = "|"
-		
-	length: -> 1
-	cursorDelta: -> 1
-	merged: -> this
-	split: -> [false, this]
 	
 opMap: {
 	'str': OpAddString
-	'caret': OpAddCaret
 	'remove': OpRemove
 	'retain': OpRetain
 	'newline': OpNewline
@@ -276,6 +276,18 @@ class Change
 				go(operation.removes, no)
 				
 		return new Change(coalesceOps(outops.concat(baseops)), @docid, @fromVersion, other.toVersion)
+		
+	offsetPoint: (p) ->
+		oldoffset = 0
+		delta = 0
+		for i in @operations
+			o = i.movesOldCursor()
+			if oldoffset + o > p
+				break
+			oldoffset += o
+			delta += i.movesNewCursor() - o
+		return p + delta
+			
 
 exports.deserializeChange: (c)->
 	c.__proto__ = Change.prototype
@@ -295,10 +307,11 @@ class OTDocument
 		if change.docid? and change.docid != @id
 			throw new Error("Tried to merge against wrong document")
 		if change.toVersion == @version
-			return
+			return false
 		if change.fromVersion != @version
 			throw new Error("Tried to merge out of order (at $@version, revision from $change.fromVersion to $change.toVersion)")
 		@setFromChange(@state.merge(change))
+		return true
 		
 	setFromChange: (state) ->
 		@state = state
@@ -312,17 +325,7 @@ class OTDocument
 		offset = 0
 		for i in @state.operations
 			offset += i.length()
-		return offset			
-		
-	findCaret: (uid) ->
-		offset = 0
-		for i in @state.operations
-			if i.type == 'caret' and i.uid == uid
-				return offset
-			else
-				offset += i.length()
-		return -1
-	
+		return offset	
 	
 class OTUserEndpoint extends OTDocument
 	constructor: (id, conn, uid) ->
@@ -344,15 +347,8 @@ class OTUserEndpoint extends OTDocument
 		
 	applyChangeDown: (change) ->
 		@applyChange(change)
-		if @firstChange
-			@firstChange = false
-			@applyChangeUp(new Change([new OpAddCaret(@uid),new OpRetain(@length())], @id, @version, @makeVersion()))
 		
-	findMyCaret: -> @findCaret(@uid)
-	
-	spliceAtCaret: (remove, add) ->
-		offset = @findMyCaret()
-		
+	splice: (offset, remove, add) ->
 		l = [new OpRetain(offset-remove)]
 		if remove
 			l.push(new OpRemove(remove))
@@ -367,35 +363,7 @@ class OTUserEndpoint extends OTDocument
 		
 		@applyChangeUp(change)
 		
-	moveCaretTo: (newpos) ->
-		pos = @findMyCaret()
-		
-		l = []
-		
-		if newpos < pos
-			l.push(new OpRetain(newpos))
-			l.push(new OpAddCaret(@uid))
-			l.push(new OpRetain(pos-newpos))
-			l.push(new OpRemove(1))
-			l.push(new OpRetain(@length() - pos))
-		else
-			l.push(new OpRetain(pos))
-			l.push(new OpRemove(1))
-			l.push(new OpRetain(newpos - pos))
-			l.push(new OpAddCaret(@uid))
-			l.push(new OpRetain(@length() - newpos))
-			
-		change = new Change(l, @id, @version, @makeVersion())
-		@applyChangeUp(change)
-		
-	moveCaretBy: (offset) ->
-		pos = @findMyCaret()+offset
-		if pos < 0
-			pos = 0
-		l = @length()
-		if pos>l
-			pos = l
-		@moveCaretTo(pos)
+
 		
 	update: () -> false
 		
@@ -431,17 +399,13 @@ class OTServerEndpoint extends OTDocument
 		#TODO: OT
 		
 	leave: (client) ->
-		pos = @findCaret(client.uid)
 		delete @clients[client.uid]
-		if pos > 0
-			@handleChange(new Change([new OpRetain(pos), new OpRemove(1)], @id, @version, @makeVersion()))
 			
 		
 			
 
 exports.OpRetain = OpRetain
 exports.OpAddString = OpAddString
-exports.OpAddCaret = OpAddCaret
 exports.OpRemove = OpRemove
 exports.OTDocument = OTDocument
 exports.OTUserEndpoint = OTUserEndpoint

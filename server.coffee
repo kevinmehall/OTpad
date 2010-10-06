@@ -62,7 +62,7 @@ socket.on 'connection', (client) ->
 			switch msg.type
 				when 'change'
 					doc = documents[msg.docid]
-					doc.handleChange(ot.deserializeChange(msg.change))
+					doc.handleChange(ot.deserializeChange(msg.change), c.uid)
 				when 'join'
 					doc = getDocument(msg.docid)
 					c.uid = msg.uid
