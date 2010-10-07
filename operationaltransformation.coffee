@@ -363,6 +363,19 @@ class OTUserEndpoint extends OTDocument
 		
 		@applyChangeUp(change)
 		
+	spliceRange: (start, end, insert) ->
+		l = [new OpRetain(start)]
+		
+		if end != start
+			l.push(new OpRemove(end-start))
+		if insert
+			l = l.concat(insert)
+		
+		l.push(new OpRetain(@length() - end))
+		console.log(l)	
+		change = new Change(l, @id, @version, @makeVersion())
+		@applyChangeUp(change)
+		
 
 		
 	update: () -> false
@@ -407,6 +420,7 @@ class OTServerEndpoint extends OTDocument
 exports.OpRetain = OpRetain
 exports.OpAddString = OpAddString
 exports.OpRemove = OpRemove
+exports.OpNewline = OpNewline
 exports.OTDocument = OTDocument
 exports.OTUserEndpoint = OTUserEndpoint
 exports.OTServerEndpoint = OTServerEndpoint

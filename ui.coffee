@@ -59,20 +59,30 @@ class EditorDocument extends OTUserEndpoint
 		@div.contentEditable = true			
 		
 		@div.onkeydown = (event) =>
-			if event.keyCode == 8
-				@spliceAtCaret(1, '')
+			if event.keyCode == 8 # backspace
+				[a,b] = @caretPosition()
+				if a == b
+					a-=1
+				if a >= 0
+					@spliceRange(a, b, [])
+			else if event.keyCode == 13
+				@spliceAtCaret([new OpNewline()])
+			else
+				return true
+			return false
+				
 		
 		@div.onkeypress  = (event) =>
 			keycode = event.keyCode || event.which
 			if keycode >=37 and keycode <= 40 and not event.shiftKey
 				return # fix Firefox
-			if keycode >= 32 or keycode==13
-				@spliceAtCaret(0, String.fromCharCode(keycode))
+			if keycode >= 32
+				@spliceAtCaret([new OpAddString(String.fromCharCode(keycode))])
 			return false
 				
 		@div.onpaste = (event) =>
 			console.log(event, event.clipboardData.getData('text/plain'))
-			@spliceAtCaret(0, event.clipboardData.getData('text/plain'))
+			@spliceAtCaret([new OpAddString(event.clipboardData.getData('text/plain'))]) # TODO: handle pasted newlines
 			@div.focus()
 			
 		@div.onbeforepaste = (event) =>
@@ -82,15 +92,21 @@ class EditorDocument extends OTUserEndpoint
 			
 	caretPosition: ->
 		sel = window.getSelection()
-		if sel.focusNode
-			ot_offset = sel.focusNode.ot_offset ? sel.focusNode.parentNode.ot_offset
-			console.log("cursor is in", sel.focusNode, sel.focusNode.ot_offset, ot_offset)
-			return ot_offset + sel.focusOffset
+		a = @posFromNodeOffset(sel.focusNode, sel.focusOffset)
+		b = @posFromNodeOffset(sel.anchorNode, sel.anchorOffset)
+		console.log('cursor is', a, b)
+		[Math.min(a,b), Math.max(a,b)]
+			
+	posFromNodeOffset: (node, offset) ->
+		if node
+			ot_offset = node.ot_offset ? node.parentNode.ot_offset
+			return ot_offset + offset
 		else
 			return undefined
 		
-	spliceAtCaret: (remove, add) ->
-		@splice(@caretPosition(), remove, add)
+	spliceAtCaret: (add) ->
+		[a,b] = @caretPosition()
+		@spliceRange(a, b, add)
 				
 	focus: =>
 		@div.focus()
@@ -102,8 +118,10 @@ class EditorDocument extends OTUserEndpoint
 		
 		
 	update: (change) ->
-		oldCaretPos = @caretPosition() || 0
-		caretPos = change.offsetPoint(oldCaretPos)
+		[caret1Pos, caret2Pos] = @caretPosition()
+		caret1Pos = change.offsetPoint(caret1Pos)
+		caret2Pos = change.offsetPoint(caret2Pos)
+		
 		div = @div
 		div.innerHTML = ''
 		div.ot_offset = 0
@@ -111,11 +129,13 @@ class EditorDocument extends OTUserEndpoint
 				
 		lineDiv = document.createElement('div')
 		div.appendChild(lineDiv)
-		caretNode = lineDiv
-		caretNodeOffs = 0
 		lineDiv.ot_offset = 0
 		
-		
+		caret1Node = lineDiv
+		caret1NodeOffs = 0
+		caret2Node = lineDiv
+		caret2NodeOffs = 0
+
 		for i in @state.operations
 			switch i.type
 				when 'str'
@@ -124,24 +144,28 @@ class EditorDocument extends OTUserEndpoint
 					s.ot_offset=offset
 					s.appendChild(d)
 					lineDiv.appendChild(s)
-					if offset<=caretPos
-						caretNode = d
-						caretNodeOffs = offset
+					if offset<=caret1Pos
+						caret1Node = d
+						caret1NodeOffs = offset
+					if offset<=caret2Pos
+						caret2Node = d
+						caret2NodeOffs = offset	
 				when 'newline'
 					lineDiv = document.createElement('div')
 					div.appendChild(lineDiv)
 					lineDiv.ot_offset = offset+1 # because an inserted node should go after the newline
-					if offset<caretPos
-						caretNode = lineDiv
-						caretNodeOffs = offset + 1 # to counteract above
-					
-			
+					if offset<caret1Pos
+						caret1Node = lineDiv
+						caret1NodeOffs = offset+1
+					if offset<caret2Pos
+						caret2Node = lineDiv
+						caret2NodeOffs = offset+1
 			offset+=i.length()
 			
-		
 		sel = window.getSelection()
 		range = document.createRange()
-		range.setStart(caretNode, caretPos - caretNodeOffs)
-		range.setEnd(caretNode, caretPos - caretNodeOffs)
-		#sel.removeAllRanges()
+		console.log(caret1Node, caret1Pos - caret1NodeOffs)
+		range.setStart(caret1Node, caret1Pos - caret1NodeOffs)
+		range.setEnd(caret2Node, caret2Pos - caret2NodeOffs)
+		sel.removeAllRanges()
 		sel.addRange(range)
