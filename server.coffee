@@ -14,12 +14,12 @@ server = http.createServer (req, res) ->
 		res.write("404")
 		res.end()
 	
-	if not (/^\/[a-zA-Z0-9-_.]+$/).test(path)
+	if not checkDocName(path) or path == '/favicon.ico'
 		error("Invalid file")
 		return
 	
 	if path.indexOf('.js') == -1
-		sys.log("Loading document $path")
+		sys.log("Serving page $path")
 		path = '/index.html'
 				
 	fs.readFile __dirname + path, (err, data) ->
@@ -33,49 +33,100 @@ server = http.createServer (req, res) ->
 			res.write(data, 'utf8');
 			res.end();
 
-
-  
 clients = []
 documents = {}
+FLUSH_TIMEOUT = 10*1000
 
-getDocument: (docid) ->
-	if not documents[docid]
-		doc = new ot.OTServerEndpoint(docid, null, 'server')
-		documents[docid] = doc
-		sys.puts("Created document $docid")
+markDirty: (doc) ->
+	if not doc.write_timer
+		doc.write_timer = setTimeout(->
+			saveDocument(doc)
+			doc.write_timer = false
+		, FLUSH_TIMEOUT)
+		
+
+getDocument: (docid, callback) ->
+	if documents[docid]
+		callback(documents[docid])
 	else
-		doc = documents[docid]
+		loadDocument docid, (doc) ->
+			if doc
+				callback(doc)
+			else
+				callback(createDocument(docid))
+	
+persistDir = 'db'
+
+checkDocName: (name) -> (/^\/[a-zA-Z0-9-_.]+$/).test(name)
+
+saveDocument: (doc, callback) ->
+	if not checkDocName(doc.id)
+		return
+		
+	data: JSON.stringify {
+		id: doc.id
+		state: doc.state
+		version: doc.version
+	}
+	fs.writeFile persistDir+doc.id, data, ->
+		sys.log("Saved ${doc.id}")
+		if callback then callback()
+	
+loadDocument: (docid, callback) ->
+	if not checkDocName(docid)
+		callback(false)
+		return
+	fs.readFile persistDir+docid, (err, data) ->
+		if err
+			console.log("file ${docid}, $err")
+			callback(false)
+		else
+			d = JSON.parse(data)
+			d.clients = {}
+			d.versionHistory = {}
+			d.__proto__ = ot.OTServerEndpoint.prototype
+			ot.deserializeChange(d.state)
+			documents[d.id] = d
+			sys.log("Loaded ${docid}")
+			callback(d)
+	
+createDocument: (docid) ->		
+	doc = new ot.OTServerEndpoint(docid)
+	documents[docid] = doc
+	sys.puts("Created document $docid")
 	return doc
+	
 
 socket = io.listen(server)
- 
-socket.on 'connection', (client) -> 
-	sys.puts('connected')
-	
-	c = {socket: client}
+
+socket.on 'connection', (client) ->
+	c = {socket: client, documents:[]}
 	clients.push(c)
 	
 	client.on 'message', (body) ->
-		sys.puts(">$body<")
 		try
 			msg = JSON.parse(body)
 			switch msg.type
 				when 'change'
 					doc = documents[msg.docid]
 					doc.handleChange(ot.deserializeChange(msg.change), c.uid)
+					markDirty(doc)
 				when 'join'
-					doc = getDocument(msg.docid)
-					c.uid = msg.uid
-					c.document = doc
-					doc.join(c)
+					getDocument msg.docid, (doc) ->
+						c.uid = msg.uid
+						c.documents.push(doc.id)
+						doc.join(c)
 					
 		catch error
-			sys.puts("Error: ", error.message, error.stack)
+			sys.log("Error: ", error,  error.msg, error.stack)
 	
 		
 	client.on 'disconnect', ->
-		if c.document?
-			c.document.leave(c)
+		for docid in c.documents
+			doc = documents[docid]
+			doc.leave(c)
+			if not doc.clients.length
+				sys.log("Document $docid has no users")
 		clients.splice(clients.indexOf(c), 1)
 		
 server.listen(8123)

@@ -405,7 +405,7 @@ class OTServerEndpoint extends OTDocument
 			}
 			
 		for i of @clients
-			if i != fromUid # don't send back to autor
+			if i != fromUid # don't send back to author
 				@clients[i].socket.send(msg)
 				
 		#TODO: OT
