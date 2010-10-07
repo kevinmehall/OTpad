@@ -105,7 +105,6 @@ class EditorDocument extends OTUserEndpoint
 		sel = window.getSelection()
 		a = @posFromNodeOffset(sel.focusNode, sel.focusOffset)
 		b = @posFromNodeOffset(sel.anchorNode, sel.anchorOffset)
-		console.log('cursor is', a, b)
 		[Math.min(a,b), Math.max(a,b)]
 			
 	posFromNodeOffset: (node, offset) ->

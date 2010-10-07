@@ -260,7 +260,7 @@ class Change
 				op = baseops.shift()
 				i += op.cursorDelta()
 				outops.push(op) if output
-			if i>offset
+			if i>offset and op
 				outops.pop() if output
 				i -= op.cursorDelta()
 				[a, b] = op.split(offset-i)
@@ -372,7 +372,6 @@ class OTUserEndpoint extends OTDocument
 			l = l.concat(insert)
 		
 		l.push(new OpRetain(@length() - end))
-		console.log(l)	
 		change = new Change(l, @id, @version, @makeVersion())
 		@applyChangeUp(change)
 		
