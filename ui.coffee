@@ -66,6 +66,12 @@ class EditorDocument extends OTUserEndpoint
 					a-=1
 				if a >= 0
 					@spliceRange(a, b, [])
+			else if event.keyCode == 46 #delete
+				[a,b] = @caretPosition()
+				if a == b
+					b+=1
+				if a >= 0 and b < @length()
+					@spliceRange(a, b, [])
 			else if event.keyCode == 13
 				@spliceAtCaret([new OpNewline()])
 			else
@@ -84,7 +90,11 @@ class EditorDocument extends OTUserEndpoint
 		@div.onpaste = (event) =>
 			console.log(event, event.clipboardData.getData('text/plain'))
 			@spliceAtCaret([new OpAddString(event.clipboardData.getData('text/plain'))]) # TODO: handle pasted newlines
-			@div.focus()
+			return false
+			
+		@div.oncut = (event) =>
+			setTimeout((=> @spliceAtCaret()), 10) # delay so browser has a chance to copy text to clipboard before it gets removed
+			return true
 			
 		@div.onbeforepaste = (event) =>
 			console.log("obp", event)
