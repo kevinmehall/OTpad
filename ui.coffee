@@ -57,6 +57,7 @@ class EditorDocument extends OTUserEndpoint
 		@div.style.position = 'relative'
 		@div.setAttribute('tabindex', 0)
 		@div.contentEditable = true			
+		@caretCollapsePending = false
 		
 		@div.onkeydown = (event) =>
 			if event.keyCode == 8 # backspace
@@ -107,6 +108,7 @@ class EditorDocument extends OTUserEndpoint
 	spliceAtCaret: (add) ->
 		[a,b] = @caretPosition()
 		@spliceRange(a, b, add)
+		@caretCollapsePending = true
 				
 	focus: =>
 		@div.focus()
@@ -122,6 +124,10 @@ class EditorDocument extends OTUserEndpoint
 		caret1Pos = change.offsetPoint(caret1Pos)
 		caret2Pos = change.offsetPoint(caret2Pos)
 		
+		if @caretCollapsePending
+			@caretCollapsePending = false
+			caret1Pos = caret2Pos
+			
 		div = @div
 		div.innerHTML = ''
 		div.ot_offset = 0
