@@ -9,7 +9,7 @@ server = http.createServer (req, res) ->
 	path = url.parse(req.url).pathname
 	
 	error = (err) ->
-		sys.log("$path -  $err")
+		sys.log("#{path} -  #{err}")
 		res.writeHead(404)
 		res.write("404")
 		res.end()
@@ -19,7 +19,7 @@ server = http.createServer (req, res) ->
 		return
 	
 	if path.indexOf('.js') == -1
-		sys.log("Serving page $path")
+		sys.log("Serving page #{path}")
 		path = '/index.html'
 				
 	fs.readFile __dirname + path, (err, data) ->
@@ -69,7 +69,7 @@ saveDocument = (doc, callback) ->
 		version: doc.version
 
 	fs.writeFile persistDir+doc.id, data, ->
-		sys.log("Saved ${doc.id}")
+		sys.log("Saved #{doc.id}")
 		if callback then callback()
 	
 loadDocument = (docid, callback) ->
@@ -78,7 +78,7 @@ loadDocument = (docid, callback) ->
 		return
 	fs.readFile persistDir+docid, (err, data) ->
 		if err
-			console.log("file ${docid}, $err")
+			console.log("file #{docid}, #{err}")
 			callback(false)
 		else
 			d = JSON.parse(data)
@@ -87,15 +87,15 @@ loadDocument = (docid, callback) ->
 			d.__proto__ = ot.OTServerEndpoint.prototype
 			ot.deserializeChange(d.state)
 			documents[d.id] = d
-			sys.log("Loaded ${docid}")
+			sys.log("Loaded #{docid}")
 			callback(d)
 	
 createDocument = (docid) ->		
 	doc = new ot.OTServerEndpoint(docid)
+	#doc.setFromChange(new ot.Change([], docid, 'null', doc.makeVersion()))
 	documents[docid] = doc
-	sys.puts("Created document $docid")
+	sys.puts("Created document #{docid}")
 	return doc
-	
 
 socket = io.listen(server)
 
@@ -126,7 +126,7 @@ socket.on 'connection', (client) ->
 			doc = documents[docid]
 			doc.leave(c)
 			if not doc.clients.length
-				sys.log("Document $docid has no users")
+				sys.log("Document #{docid} has no users")
 		clients.splice(clients.indexOf(c), 1)
 		
 server.listen(8123)

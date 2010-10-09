@@ -102,14 +102,14 @@ class OpRemove extends Operation
 			[new OpRemove(offset), new OpRemove(@inserts-offset)]
 			
 	
-opMap: {
+opMap = {
 	'str': OpAddString
 	'remove': OpRemove
 	'retain': OpRetain
 	'newline': OpNewline
 }
 
-coalesceOps: (l) ->
+coalesceOps = (l) ->
 	# Run through a list of operations, and mash together neighboring operations
 	# of the same type.
 	
@@ -247,12 +247,6 @@ class Change
 			bop = false
 		
 		return [new Change(bprime, @docid, @toVersion, other.toVersion+'m'), new Change(aprime, @docid, other.toVersion, other.toVersion+'m')]
-		
-	isNoOp: ->
-		for i in @operations
-			if i.type!=retain
-				return false
-		return true
 			
 	merge: (other) ->
 		outops = []
@@ -313,7 +307,9 @@ class OTDocument
 		if change.toVersion == @version
 			return false
 		if change.fromVersion != @version
-			throw new Error("Tried to merge out of order (at $@version, revision from $change.fromVersion to $change.toVersion)")
+			throw new Error("Tried to merge out of order (at #{@version}, revision from #{change.fromVersion} to #{change.toVersion})")
+		if console
+			console.log(change)
 		@setFromChange(@state.merge(change))
 		return true
 		
@@ -332,8 +328,6 @@ class OTDocument
 		return offset
 		
 	changesFromTo: (from, to) ->
-		sys = require('sys')
-		sys.puts("from $from to $to")
 		change = @versionHistory[from]
 		merged = false
 		while change and change.toVersion != to
@@ -343,6 +337,11 @@ class OTDocument
 				merged = merged.merge(change)
 			else
 				merged = changed
+		if not merged
+			# there are no stored changes between from and to
+			# either from == to or from is the null state
+			# but we need a change to transform against, so make a no-op change
+			merged = new Change([], @id, from, to)
 		return merged
 		
 	
@@ -351,7 +350,8 @@ class OTUserEndpoint extends OTDocument
 		super(id)
 		@conn = conn
 		@uid = uid
-		@firstChange = true
+		@pendingChanges = false
+		@needsAck = false
 		
 		if @conn
 			@conn.register(this)
@@ -361,12 +361,33 @@ class OTUserEndpoint extends OTDocument
 		
 	applyChangeUp: (change) ->
 		@applyChange(change)
-		if @conn
+		
+		if @needsAck
+			console.log("queuing change", change)
+			if not @pendingChanges
+				@pendingChanges = change
+			else
+				@pendingChanges = @pendingChanges.merge(change)
+		else
 			@conn.send(change)
+			@needsAck = change.toVersion
 		
-	applyChangeDown: (change) ->
-		@applyChange(change)
-		
+	applyChangeDown: (change, ack) ->
+		if ack
+			if ack != @needsAck
+				error("Received ack for version #{ack}, expected #{@needsAck}")
+			@needsAck = false
+			if @pendingChanges
+				[down, up] = @pendingChanges.transform(change)
+				console.log("sent pending changes", @pendingChanges, up, down)
+				@applyChange(down)
+				@applyChangeUp(up)
+				@pendingChanges = false
+			else
+				@applyChange(change)
+		else
+			@applyChange(change)
+			
 	splice: (offset, remove, add) ->
 		l = [new OpRetain(offset-remove)]
 		if remove
@@ -394,8 +415,6 @@ class OTUserEndpoint extends OTDocument
 		change = new Change(l, @id, @version, @makeVersion())
 		@applyChangeUp(change)
 		
-
-		
 	update: () -> false
 		
 class OTServerEndpoint extends OTDocument
@@ -404,7 +423,7 @@ class OTServerEndpoint extends OTDocument
 		@clients = {}
 		
 	makeVersion: ->
-		"server-${new Date().getTime()}-${Math.round(Math.random()*100000)}"
+		"server-#{new Date().getTime()}-#{Math.round(Math.random()*100000)}"
 		
 	join: (client) ->
 		@clients[client.uid] = client
@@ -414,16 +433,12 @@ class OTServerEndpoint extends OTDocument
 			change: @state
 		
 	handleChange: (change, fromUid) ->
+		sys = require('sys')
 		unmerged = @changesFromTo(change.fromVersion, @version)
 		
-		if not unmerged
-			up = change
-			down = false
-		else
-			[up, down] = unmerged.transform(change, unmerged)
+		[up, down] = unmerged.transform(change, unmerged)
 			
-			
-		sys = require('sys')
+		
 		sys.puts("change: #{sys.inspect(change)}, up: #{sys.inspect(up)}, down: #{sys.inspect(down)}")
 		
 		@applyChange(up)
@@ -436,17 +451,15 @@ class OTServerEndpoint extends OTDocument
 		for i of @clients
 			if i != fromUid # don't send back to author
 				@clients[i].socket.send(msg)
-			else if down
+			else
 				@clients[i].socket.send JSON.stringify
 					type: 'change'
 					docId: @id
 					change:down
+					acknowlege: change.toVersion
 		
 	leave: (client) ->
 		delete @clients[client.uid]
-			
-		
-			
 
 exports.OpRetain = OpRetain
 exports.OpAddString = OpAddString

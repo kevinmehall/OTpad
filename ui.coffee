@@ -1,4 +1,5 @@
-window.onload: ->
+
+window.onload =  ->
 	window.editor = document.getElementById("editor")
 	
 	myid = '' + Math.floor(Math.random()*1000000)
@@ -9,9 +10,10 @@ window.onload: ->
 class SocketConn
 	constructor: ->
 		@connected = false
-		
 		@socket = new io.Socket(null, {port: 8123})
 		@socket.connect()
+		@document = false
+		
 		@socket.on 'connect', =>
 			@connected = true
 			
@@ -19,34 +21,26 @@ class SocketConn
 			msg = JSON.parse(body)
 			switch msg.type
 				when 'change'
-					@send(msg.change, yes)
+					@document.applyChangeDown(deserializeChange(msg.change), msg.acknowlege)
 				else
 					console.log("error", msg)
 			
 		@socket.on 'disconnect', =>
 			@connected = false
 			console.log('disconnect')
-			
-		@documents = []
 		
 	register: (doc) ->
-		@documents.push(doc)
-		@socket.send JSON.stringify {
+		@document = doc
+		@socket.send JSON.stringify
 			type: 'join'
-			docid: doc.id
-			uid: doc.uid
-		}
-		
-	send: (change, fromserver) ->
-		if not fromserver
-			@socket.send JSON.stringify {
-				docid: change.docid
-				type: 'change'
-				change: change
-			}
-		
-		for doc in @documents
-			doc.applyChangeDown(deserializeChange(change))
+			docid: @document.id
+			uid: @document.uid
+			
+	send: (change) ->
+		@socket.send JSON.stringify
+			docid: change.docid
+			type: 'change'
+			change: change
 	
 	
 class EditorDocument extends OTUserEndpoint
@@ -179,7 +173,6 @@ class EditorDocument extends OTUserEndpoint
 			
 		sel = window.getSelection()
 		range = document.createRange()
-		console.log(caret1Node, caret1Pos - caret1NodeOffs)
 		range.setStart(caret1Node, caret1Pos - caret1NodeOffs)
 		range.setEnd(caret2Node, caret2Pos - caret2NodeOffs)
 		sel.removeAllRanges()
