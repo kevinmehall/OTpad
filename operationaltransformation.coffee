@@ -246,10 +246,14 @@ class Change
 			bprime.push(bop)
 			bop = false
 		
-		return [new Change(bprime, @docid, @toVersion, 'merged'), new Change(aprime, @docid, other.toVersion, 'merged')]
-			
+		return [new Change(bprime, @docid, @toVersion, other.toVersion+'m'), new Change(aprime, @docid, other.toVersion, other.toVersion+'m')]
 		
-
+	isNoOp: ->
+		for i in @operations
+			if i.type!=retain
+				return false
+		return true
+			
 	merge: (other) ->
 		outops = []
 		baseops = op for op in @operations
@@ -325,7 +329,22 @@ class OTDocument
 		offset = 0
 		for i in @state.operations
 			offset += i.length()
-		return offset	
+		return offset
+		
+	changesFromTo: (from, to) ->
+		sys:require('sys')
+		sys.puts("from $from to $to")
+		change = @versionHistory[from]
+		merged = false
+		while change and change.toVersion != to
+			sys.puts(sys.inspect(change))
+			change = @versionHistory[change.toVersion]
+			if merged
+				merged = merged.merge(change)
+			else
+				merged = changed
+		return merged
+		
 	
 class OTUserEndpoint extends OTDocument
 	constructor: (id, conn, uid) ->
@@ -396,17 +415,35 @@ class OTServerEndpoint extends OTDocument
 		}
 		
 	handleChange: (change, fromUid) ->
-		@applyChange(change)
+		unmerged = @changesFromTo(change.fromVersion, @version)
+		
+		if not unmerged
+			up = change
+			down = false
+		else
+			[up, down] = unmerged.transform(change, unmerged)
+			
+			
+		sys: require('sys')
+		sys.puts("change: ${sys.inspect(change)}, up: ${sys.inspect(up)}, down: ${sys.inspect(down)}")
+		
+		@applyChange(up)
 		
 		msg = JSON.stringify {
 				type: 'change'
 				docId: @id
-				change: change
+				change: up
 			}
 			
 		for i of @clients
 			if i != fromUid # don't send back to author
 				@clients[i].socket.send(msg)
+			else if down
+				@clients[i].socket.send JSON.stringify {
+					type: 'change'
+					docId: @id
+					change:down
+				}
 				
 		#TODO: OT
 		

@@ -118,7 +118,7 @@ socket.on 'connection', (client) ->
 						doc.join(c)
 					
 		catch error
-			sys.log("Error: ", error,  error.msg, error.stack)
+			sys.log("Error: ${error.msg}, ${error.stack}")
 	
 		
 	client.on 'disconnect', ->
