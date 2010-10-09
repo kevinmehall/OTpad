@@ -1,5 +1,5 @@
-sys: require('sys')
-ot: require('./operationaltransformation')
+sys = require('sys')
+ot = require('./operationaltransformation')
 
 fails = 0
 passes = 0
@@ -8,22 +8,22 @@ green = "\033[0;32m"
 red = "\033[0;31m"
 normal = "\033[m"
 
-check: (msg, v1, v2) ->
+check = (msg, v1, v2) ->
 	if v1 == v2
-		sys.puts("${green}PASS${normal}: $msg")
+		sys.puts("#{green}PASS#{normal}: #{msg}")
 		passes += 1
 	else
-		sys.puts("${red}FAIL${normal}: $msg")
-		sys.puts("\tgot: $v1")
-		sys.puts("\texp: $v2")
+		sys.puts("#{red}FAIL#{normal}: #{msg}")
+		sys.puts("\tgot: #{v1}")
+		sys.puts("\texp: #{v2}")
 		fails += 1
 
 
 v = 0
-makeVersion: ->
+makeVersion = ->
 	v++
 
-doc: new ot.OTDocument('testdoc')
+doc = new ot.OTDocument('testdoc')
 
 doc.setFromChange(new ot.Change([new ot.OpAddString('qwerty')], 'testdoc', '0', '1'))
 check("Initial state", doc.text(), 'qwerty')
@@ -38,15 +38,15 @@ doc.applyChange(new ot.Change([new ot.OpRetain(6), new ot.OpAddString("ZZZ"), ne
 check("Merge revision (3)", doc.text(), 'qaeNewZZZEnd')
 
 
-doc1: new ot.OTDocument('a')
-doc2: new ot.OTDocument('a')
-state: new ot.Change([new ot.OpAddString('z')], 'a', '0', '1')
+doc1 = new ot.OTDocument('a')
+doc2 = new ot.OTDocument('a')
+state = new ot.Change([new ot.OpAddString('z')], 'a', '0', '1')
 doc1.setFromChange(state)
 doc2.setFromChange(state)
 
 
-c1: new ot.Change([new ot.OpRetain(1), new ot.OpAddString('a')], 'a', '1', '2')
-c2: new ot.Change([new ot.OpAddString('b'), new ot.OpRetain(1), new ot.OpAddString('c')], 'a', '1', '3')
+c1 = new ot.Change([new ot.OpRetain(1), new ot.OpAddString('a')], 'a', '1', '2')
+c2 = new ot.Change([new ot.OpAddString('b'), new ot.OpRetain(1), new ot.OpAddString('c')], 'a', '1', '3')
 
 doc1.applyChange(c1)
 doc2.applyChange(c2)
@@ -67,4 +67,4 @@ check("OffsetPoint (5)", change.offsetPoint(5), 7)
 check("OffsetPoint (9)", change.offsetPoint(9), 12)
 
 c = if fails then red else green
-sys.puts("${c}DONE${normal}: $passes passed, $fails failed")
+sys.puts("#{c}DONE#{normal}: #{passes} passed, #{fails} failed")

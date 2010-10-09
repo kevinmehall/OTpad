@@ -1,14 +1,14 @@
-http:	require('http')
-io: 	require('./socket.io')
-sys:	require('sys')
-fs:		require('fs')
-url:	require('url')
-ot:		require('./operationaltransformation')
+http =	require('http')
+io = 	require('./socket.io')
+sys =	require('sys')
+fs =	require('fs')
+url =	require('url')
+ot =	require('./operationaltransformation')
 
 server = http.createServer (req, res) ->
 	path = url.parse(req.url).pathname
 	
-	error: (err) ->
+	error = (err) ->
 		sys.log("$path -  $err")
 		res.writeHead(404)
 		res.write("404")
@@ -30,14 +30,14 @@ server = http.createServer (req, res) ->
 			if path.indexOf('.js')!=1
 				ctype = 'text/html'
 			res.writeHead(200, {'Content-Type': ctype})
-			res.write(data, 'utf8');
-			res.end();
+			res.write(data, 'utf8')
+			res.end()
 
 clients = []
 documents = {}
 FLUSH_TIMEOUT = 10*1000
 
-markDirty: (doc) ->
+markDirty = (doc) ->
 	if not doc.write_timer
 		doc.write_timer = setTimeout(->
 			saveDocument(doc)
@@ -45,7 +45,7 @@ markDirty: (doc) ->
 		, FLUSH_TIMEOUT)
 		
 
-getDocument: (docid, callback) ->
+getDocument = (docid, callback) ->
 	if documents[docid]
 		callback(documents[docid])
 	else
@@ -57,22 +57,22 @@ getDocument: (docid, callback) ->
 	
 persistDir = 'db'
 
-checkDocName: (name) -> (/^\/[a-zA-Z0-9-_.]+$/).test(name)
+checkDocName = (name) -> (/^\/[a-zA-Z0-9-_.]+$/).test(name)
 
-saveDocument: (doc, callback) ->
+saveDocument = (doc, callback) ->
 	if not checkDocName(doc.id)
 		return
 		
-	data: JSON.stringify {
+	data = JSON.stringify
 		id: doc.id
 		state: doc.state
 		version: doc.version
-	}
+
 	fs.writeFile persistDir+doc.id, data, ->
 		sys.log("Saved ${doc.id}")
 		if callback then callback()
 	
-loadDocument: (docid, callback) ->
+loadDocument = (docid, callback) ->
 	if not checkDocName(docid)
 		callback(false)
 		return
@@ -90,7 +90,7 @@ loadDocument: (docid, callback) ->
 			sys.log("Loaded ${docid}")
 			callback(d)
 	
-createDocument: (docid) ->		
+createDocument = (docid) ->		
 	doc = new ot.OTServerEndpoint(docid)
 	documents[docid] = doc
 	sys.puts("Created document $docid")
@@ -118,7 +118,7 @@ socket.on 'connection', (client) ->
 						doc.join(c)
 					
 		catch error
-			sys.log("Error: ${error.msg}, ${error.stack}")
+			sys.log("Error: #{error.msg}, #{error.stack}")
 	
 		
 	client.on 'disconnect', ->

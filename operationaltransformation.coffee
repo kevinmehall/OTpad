@@ -4,7 +4,7 @@ if window?
 else
 	exports = module.exports = {}
 
-warn: (msg) ->
+warn = (msg) ->
 	true
 	#if console
 	#	console.warning(msg)
@@ -18,8 +18,8 @@ class OpRetain extends Operation
 	constructor: (count) ->
 		if count == 0
 			warn("Useless retain")
-		@type: 'retain'
-		@count: count
+		@type = 'retain'
+		@count = count
 		
 	length: -> @count
 	cursorDelta: -> @count
@@ -45,8 +45,8 @@ class OpAddString extends OpAdd
 	# AddString operation inserts a string
 	
 	constructor: (addString) ->
-		@type: 'str'
-		@addString: addString
+		@type = 'str'
+		@addString = addString
 		
 	length: -> @addString.length
 	cursorDelta: -> @addString.length
@@ -65,7 +65,7 @@ class OpNewline extends OpAdd
 	# Newline operation inserts a line break
 	
 	constructor: ->
-		@type: 'newline'
+		@type = 'newline'
 		@addString = '\n'
 		
 	length: -> 1
@@ -82,8 +82,8 @@ class OpRemove extends Operation
 	# Remove operation skips over [n] characters from previous version so they are not included
 
 	constructor: (n) ->
-		@type: 'remove'
-		@removes: n
+		@type = 'remove'
+		@removes = n
 		
 	length: -> @removes
 	cursorDelta: -> -1*@removes
@@ -198,10 +198,10 @@ transform: (first, second) ->
 
 class Change
 	constructor: (operations, docid, fromVersion, toVersion) ->
-		@operations: operations
-		@fromVersion: fromVersion
-		@toVersion: toVersion
-		@docid: docid
+		@operations = operations
+		@fromVersion = fromVersion
+		@toVersion = toVersion
+		@docid = docid
 
 	transform: (other) ->
 		a = i for i in @operations
@@ -258,7 +258,7 @@ class Change
 		outops = []
 		baseops = op for op in @operations
 		
-		go: (offset, output) ->
+		go =(offset, output) ->
 			i = 0
 			while i<offset and baseops.length
 				op = baseops.shift()
@@ -275,7 +275,7 @@ class Change
 			if operation.type == 'retain'
 				go(operation.count, yes)
 			else
-				m: operation.merged()
+				m = operation.merged()
 				outops.push(m) if m
 				go(operation.removes, no)
 				
@@ -293,7 +293,7 @@ class Change
 		return p + delta
 			
 
-exports.deserializeChange: (c)->
+exports.deserializeChange = (c)->
 	c.__proto__ = Change.prototype
 	for i in c.operations
 		i.__proto__ = opMap[i.type].prototype
@@ -302,9 +302,9 @@ exports.deserializeChange: (c)->
 						
 class OTDocument
 	constructor: (id) ->
-		@id: id
-		@version: 'null'
-		@versionHistory: {}
+		@id = id
+		@version = 'null'
+		@versionHistory = {}
 		@setFromChange(new Change([], @id, 'null', 'null'))
 		
 	applyChange: (change) ->
@@ -332,7 +332,7 @@ class OTDocument
 		return offset
 		
 	changesFromTo: (from, to) ->
-		sys:require('sys')
+		sys = require('sys')
 		sys.puts("from $from to $to")
 		change = @versionHistory[from]
 		merged = false
@@ -357,7 +357,7 @@ class OTUserEndpoint extends OTDocument
 			@conn.register(this)
 			
 	makeVersion: ->
-		"$@uid-${new Date().getTime()}-${Math.round(Math.random()*100000)}"
+		"#{@uid}-#{new Date().getTime()}-#{Math.round(Math.random()*100000)}"
 		
 	applyChangeUp: (change) ->
 		@applyChange(change)
@@ -408,11 +408,10 @@ class OTServerEndpoint extends OTDocument
 		
 	join: (client) ->
 		@clients[client.uid] = client
-		client.socket.send JSON.stringify {
+		client.socket.send JSON.stringify
 			type: 'change'
 			docId: @id
 			change: @state
-		}
 		
 	handleChange: (change, fromUid) ->
 		unmerged = @changesFromTo(change.fromVersion, @version)
@@ -424,28 +423,24 @@ class OTServerEndpoint extends OTDocument
 			[up, down] = unmerged.transform(change, unmerged)
 			
 			
-		sys: require('sys')
-		sys.puts("change: ${sys.inspect(change)}, up: ${sys.inspect(up)}, down: ${sys.inspect(down)}")
+		sys = require('sys')
+		sys.puts("change: #{sys.inspect(change)}, up: #{sys.inspect(up)}, down: #{sys.inspect(down)}")
 		
 		@applyChange(up)
 		
-		msg = JSON.stringify {
+		msg = JSON.stringify
 				type: 'change'
 				docId: @id
 				change: up
-			}
 			
 		for i of @clients
 			if i != fromUid # don't send back to author
 				@clients[i].socket.send(msg)
 			else if down
-				@clients[i].socket.send JSON.stringify {
+				@clients[i].socket.send JSON.stringify
 					type: 'change'
 					docId: @id
 					change:down
-				}
-				
-		#TODO: OT
 		
 	leave: (client) ->
 		delete @clients[client.uid]
