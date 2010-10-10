@@ -6,6 +6,7 @@ url =	require('url')
 
 ot =	require('./operationaltransformation')
 common = require('./servercommon')
+servercore = require('./servercore')
 [debug, warn, error] = [common.debug, common.warn, common.error]
 
 server = http.createServer (req, res) ->
@@ -87,14 +88,14 @@ loadDocument = (docid, callback) ->
 			d = JSON.parse(data)
 			d.clients = {}
 			d.versionHistory = {}
-			d.__proto__ = ot.OTServerEndpoint.prototype
+			d.__proto__ = servercore.OTServerDocument.prototype
 			ot.deserializeChange(d.state)
 			documents[d.id] = d
 			sys.log("Loaded #{docid}")
 			callback(d)
 	
 createDocument = (docid) ->		
-	doc = new ot.OTServerEndpoint(docid)
+	doc = new servercore.OTServerDocument(docid)
 	#doc.setFromChange(new ot.Change([], docid, 'null', doc.makeVersion()))
 	documents[docid] = doc
 	debug("Created document #{docid}")

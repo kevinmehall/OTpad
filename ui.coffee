@@ -1,3 +1,6 @@
+ot = window.ot
+otclient = window.otclient
+
 
 window.onload =  ->
 	window.editor = document.getElementById("editor")
@@ -43,7 +46,7 @@ class SocketConn
 			change: change
 	
 	
-class EditorDocument extends ot.OTUserEndpoint
+class EditorDocument extends otclient.OTClientDocument
 	constructor: (id, conn, uid, div) ->
 		super(id, conn, uid)
 		@div = div
