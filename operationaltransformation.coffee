@@ -4,10 +4,10 @@ if window?
 else
 	exports = module.exports = {}
 
-warn = (msg) ->
+error = (msg) ->
 	true
-	#if console
-	#	console.warning(msg)
+	if console
+		console.warn(msg)
 
 class Operation
 	isAdd: -> undefined
@@ -17,7 +17,7 @@ class OpRetain extends Operation
 	
 	constructor: (count) ->
 		if count == 0
-			warn("Useless retain")
+			error("Useless retain")
 		@type = 'retain'
 		@count = count
 		
@@ -133,7 +133,7 @@ coalesceOps = (l) ->
 	return out
 		
 
-split: (first, second) ->
+split = (first, second) ->
 	# Takes two operations and splits them so they can be matched against each 
 	# other by Change.transform. Returns a nested array. ret[0] is the two 
 	# pieces of the first operation, ret[1] is the two pieces of the second.
@@ -157,7 +157,7 @@ split: (first, second) ->
 		]
 
 		
-transform: (first, second) ->
+transform = (first, second) ->
 	# transforms two operations against each other. Assumes that the two
 	# operations have already been split and are the same length.
 	# Takes an operation from A and B each and returns an
@@ -308,15 +308,13 @@ class OTDocument
 			return false
 		if change.fromVersion != @version
 			throw new Error("Tried to merge out of order (at #{@version}, revision from #{change.fromVersion} to #{change.toVersion})")
-		if console
-			console.log(change)
+		@versionHistory[change.fromVersion] = change
 		@setFromChange(@state.merge(change))
 		return true
 		
 	setFromChange: (state) ->
 		@state = state
 		@version = state.toVersion
-		@versionHistory[@version] = state
 
 	text: () ->
 		((if i.addString then i.addString else '') for i in @state.operations).join('')
@@ -331,12 +329,11 @@ class OTDocument
 		change = @versionHistory[from]
 		merged = false
 		while change and change.toVersion != to
-			sys.puts(sys.inspect(change))
 			change = @versionHistory[change.toVersion]
 			if merged
 				merged = merged.merge(change)
 			else
-				merged = changed
+				merged = change
 		if not merged
 			# there are no stored changes between from and to
 			# either from == to or from is the null state
@@ -379,14 +376,22 @@ class OTUserEndpoint extends OTDocument
 			@needsAck = false
 			if @pendingChanges
 				[down, up] = @pendingChanges.transform(change)
-				console.log("sent pending changes", @pendingChanges, up, down)
+				console.log("received ack, sent pending changes", @pendingChanges, up, down)
 				@applyChange(down)
 				@applyChangeUp(up)
 				@pendingChanges = false
 			else
+				console.log("received ack, no pending changes", change, ack)
 				@applyChange(change)
 		else
-			@applyChange(change)
+			if @needsAck
+				console.log("received change, no ack, ignoring", change)
+			else
+				@applyChange(change)
+			#console.log("received change, no ack #{change.fromVersion} #{@version}")
+			#unmerged = @changesFromTo(change.fromVersion, @version)
+			#[down, up] = unmerged.transform(change, unmerged)
+			#@applyChange(down)
 			
 	splice: (offset, remove, add) ->
 		l = [new OpRetain(offset-remove)]
@@ -433,13 +438,9 @@ class OTServerEndpoint extends OTDocument
 			change: @state
 		
 	handleChange: (change, fromUid) ->
-		sys = require('sys')
 		unmerged = @changesFromTo(change.fromVersion, @version)
 		
 		[up, down] = unmerged.transform(change, unmerged)
-			
-		
-		sys.puts("change: #{sys.inspect(change)}, up: #{sys.inspect(up)}, down: #{sys.inspect(down)}")
 		
 		@applyChange(up)
 		
