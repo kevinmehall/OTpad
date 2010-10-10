@@ -21,7 +21,7 @@ class SocketConn
 			msg = JSON.parse(body)
 			switch msg.type
 				when 'change'
-					@document.applyChangeDown(deserializeChange(msg.change), msg.acknowlege)
+					@document.applyChangeDown(ot.deserializeChange(msg.change), msg.acknowlege)
 				else
 					console.log("error", msg)
 			
@@ -43,7 +43,7 @@ class SocketConn
 			change: change
 	
 	
-class EditorDocument extends OTUserEndpoint
+class EditorDocument extends ot.OTUserEndpoint
 	constructor: (id, conn, uid, div) ->
 		super(id, conn, uid)
 		@div = div
@@ -67,7 +67,7 @@ class EditorDocument extends OTUserEndpoint
 				if a >= 0 and b < @length()
 					@spliceRange(a, b, [])
 			else if event.keyCode == 13
-				@spliceAtCaret([new OpNewline()])
+				@spliceAtCaret([new ot.OpNewline()])
 			else
 				return true
 			return false
@@ -78,12 +78,12 @@ class EditorDocument extends OTUserEndpoint
 			if keycode >=37 and keycode <= 40 and not event.shiftKey
 				return # fix Firefox
 			if keycode >= 32
-				@spliceAtCaret([new OpAddString(String.fromCharCode(keycode))])
+				@spliceAtCaret([new ot.OpAddString(String.fromCharCode(keycode))])
 			return false
 				
 		@div.onpaste = (event) =>
 			console.log(event, event.clipboardData.getData('text/plain'))
-			@spliceAtCaret([new OpAddString(event.clipboardData.getData('text/plain'))]) # TODO: handle pasted newlines
+			@spliceAtCaret([new ot.OpAddString(event.clipboardData.getData('text/plain'))]) # TODO: handle pasted newlines
 			return false
 			
 		@div.oncut = (event) =>

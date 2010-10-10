@@ -3,7 +3,10 @@ io = 	require('./socket.io')
 sys =	require('sys')
 fs =	require('fs')
 url =	require('url')
+
 ot =	require('./operationaltransformation')
+common = require('./servercommon')
+[debug, warn, error] = [common.debug, common.warn, common.error]
 
 server = http.createServer (req, res) ->
 	path = url.parse(req.url).pathname
@@ -94,7 +97,7 @@ createDocument = (docid) ->
 	doc = new ot.OTServerEndpoint(docid)
 	#doc.setFromChange(new ot.Change([], docid, 'null', doc.makeVersion()))
 	documents[docid] = doc
-	sys.puts("Created document #{docid}")
+	debug("Created document #{docid}")
 	return doc
 
 socket = io.listen(server)
@@ -130,3 +133,4 @@ socket.on 'connection', (client) ->
 		clients.splice(clients.indexOf(c), 1)
 		
 server.listen(8123)
+debug("Server started")

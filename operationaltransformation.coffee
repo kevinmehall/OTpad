@@ -1,23 +1,23 @@
-
 if window?
-	exports = window
+	exports = window.ot = {}
 else
 	exports = module.exports = {}
 
-error = (msg) ->
-	true
-	if console
-		console.warn(msg)
+if require?
+	common = require('./servercommon')
+	[debug, warn, error] = [common.debug, common.warn, common.error]
+else
+	[debug, warn, error] = [window.debug, window.warn, window.error]
 
-class Operation
+exports.Operation = class Operation
 	isAdd: -> undefined
 
-class OpRetain extends Operation
+exports.OpRetain = class OpRetain extends Operation
 	# Retain operation inserts [count] characters from previous version of the document
 	
 	constructor: (count) ->
 		if count == 0
-			error("Useless retain")
+			warn("Useless retain")
 		@type = 'retain'
 		@count = count
 		
@@ -37,11 +37,11 @@ class OpRetain extends Operation
 		
 	merged: -> false
 
-class OpAdd extends Operation
+exports.OpAdd = class OpAdd extends Operation
 	isAdd: -> true
 	merged: -> return this
 
-class OpAddString extends OpAdd
+exports.OpAddString = class OpAddString extends OpAdd
 	# AddString operation inserts a string
 	
 	constructor: (addString) ->
@@ -61,7 +61,7 @@ class OpAddString extends OpAdd
 		b = if b then new OpAddString(b) else false
 		return [a, b]
 		
-class OpNewline extends OpAdd
+exports.OpNewline = class OpNewline extends OpAdd
 	# Newline operation inserts a line break
 	
 	constructor: ->
@@ -78,7 +78,7 @@ class OpNewline extends OpAdd
 	split: -> [false, this]
 	
 		
-class OpRemove extends Operation
+exports.OpRemove = class OpRemove extends Operation
 	# Remove operation skips over [n] characters from previous version so they are not included
 
 	constructor: (n) ->
@@ -196,7 +196,7 @@ transform = (first, second) ->
 				
 	
 
-class Change
+exports.Change = class Change
 	constructor: (operations, docid, fromVersion, toVersion) ->
 		@operations = operations
 		@fromVersion = fromVersion
@@ -287,14 +287,14 @@ class Change
 		return p + delta
 			
 
-exports.deserializeChange = (c)->
+exports.deserializeChange = deserializeChange = (c)->
 	c.__proto__ = Change.prototype
 	for i in c.operations
 		i.__proto__ = opMap[i.type].prototype
 	return c
 
 						
-class OTDocument
+exports.OTDocument = class OTDocument
 	constructor: (id) ->
 		@id = id
 		@version = 'null'
@@ -342,7 +342,7 @@ class OTDocument
 		return merged
 		
 	
-class OTUserEndpoint extends OTDocument
+exports.OTUserEndpoint = class OTUserEndpoint extends OTDocument
 	constructor: (id, conn, uid) ->
 		super(id)
 		@conn = conn
@@ -360,7 +360,7 @@ class OTUserEndpoint extends OTDocument
 		@applyChange(change)
 		
 		if @needsAck
-			console.log("queuing change", change)
+			debug("queuing change", change)
 			if not @pendingChanges
 				@pendingChanges = change
 			else
@@ -376,22 +376,18 @@ class OTUserEndpoint extends OTDocument
 			@needsAck = false
 			if @pendingChanges
 				[down, up] = @pendingChanges.transform(change)
-				console.log("received ack, sent pending changes", @pendingChanges, up, down)
+				debug("received ack, sent pending changes", @pendingChanges, up, down)
 				@applyChange(down)
 				@applyChangeUp(up)
 				@pendingChanges = false
 			else
-				console.log("received ack, no pending changes", change, ack)
+				debug("received ack, no pending changes", change, ack)
 				@applyChange(change)
 		else
 			if @needsAck
-				console.log("received change, no ack, ignoring", change)
+				debug("received change, no ack, ignoring", change)
 			else
 				@applyChange(change)
-			#console.log("received change, no ack #{change.fromVersion} #{@version}")
-			#unmerged = @changesFromTo(change.fromVersion, @version)
-			#[down, up] = unmerged.transform(change, unmerged)
-			#@applyChange(down)
 			
 	splice: (offset, remove, add) ->
 		l = [new OpRetain(offset-remove)]
@@ -422,7 +418,7 @@ class OTUserEndpoint extends OTDocument
 		
 	update: () -> false
 		
-class OTServerEndpoint extends OTDocument
+exports.OTServerEndpoint = class OTServerEndpoint extends OTDocument
 	constructor: (docid) ->
 		super(docid)
 		@clients = {}
@@ -461,13 +457,4 @@ class OTServerEndpoint extends OTDocument
 		
 	leave: (client) ->
 		delete @clients[client.uid]
-
-exports.OpRetain = OpRetain
-exports.OpAddString = OpAddString
-exports.OpRemove = OpRemove
-exports.OpNewline = OpNewline
-exports.OTDocument = OTDocument
-exports.OTUserEndpoint = OTUserEndpoint
-exports.OTServerEndpoint = OTServerEndpoint
-exports.Change = Change
 
