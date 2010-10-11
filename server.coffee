@@ -4,6 +4,8 @@ sys =	require('sys')
 fs =	require('fs')
 url =	require('url')
 
+md5 = require('./md5-min')
+
 ot =	require('./operationaltransformation')
 common = require('./servercommon')
 servercore = require('./servercore')
@@ -103,6 +105,8 @@ createDocument = (docid) ->
 
 socket = io.listen(server)
 
+verifyDB = {}
+
 socket.on 'connection', (client) ->
 	c = {socket: client, documents:[]}
 	clients.push(c)
@@ -120,6 +124,16 @@ socket.on 'connection', (client) ->
 						c.uid = msg.uid
 						c.documents.push(doc.id)
 						doc.join(c)
+				when 'verify'
+					if msg.toVersion of verifyDB
+						other = verifyDB[msg.toVersion]
+						if msg.hash == other.hash
+							debug("Verify version #{msg.toVersion} OK")
+						else
+							common.error("Verify failed for #{msg.toVersion}, from #{msg.fromVersion} is #{msg.hash}. Other is from #{other.fromVersion} with #{other.hash}")
+					else
+						verifyDB[msg.toVersion] = msg
+						
 					
 		catch error
 			sys.log("Error: #{error.msg}, #{error.stack}")

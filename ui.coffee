@@ -7,6 +7,7 @@ window.onload =  ->
 	window.conn = new SocketConn()
 	window.doc = new otclient.OTClientDocument(document.location.pathname, conn, myid)
 	window.editor = new Editor(document.getElementById("editor"), doc)
+	window.itest = new IntegrationTestListener(doc)
 
 class SocketConn
 	constructor: ->
@@ -168,3 +169,27 @@ class Editor extends otclient.Listener
 		range.setEnd(caret2Node, caret2Pos - caret2NodeOffs)
 		sel.removeAllRanges()
 		sel.addRange(range)
+		
+class IntegrationTestListener extends otclient.Listener
+	constructor: (@doc) ->
+		@doc.registerListener(this)
+	
+	changeApplied: (change) ->
+		msg = JSON.stringify
+			type: 'verify'
+			fromVersion: change.fromVersion
+			toVersion: change.toVersion
+			uid: @doc.uid
+			hash: hex_md5(@doc.text())
+		@doc.conn.socket.send(msg)
+		
+	simChanges: ->
+		if not @testChar
+			@testChar = ['.', '#', 'a', 'b', 'c', 'x', 'w', 'r'][Math.floor(Math.random() * 8)]
+		a = Math.floor(Math.random() * @doc.length())
+		b = Math.floor(Math.random() * @doc.length())
+		@doc.spliceRange(Math.min(a,b), Math.max(a,b), [new ot.OpAddString(@testChar)])
+		
+		time = Math.floor(Math.random() * 500)
+		setTimeout((=> @simChanges()), time)
+		
