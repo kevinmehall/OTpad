@@ -14,6 +14,7 @@ else
 exports.OTClientDocument = class OTClientDocument extends ot.OTDocument
 	constructor: (id, conn, uid) ->
 		super(id)
+		@listeners = []
 		@conn = conn
 		@uid = uid
 		@pendingChanges = false
@@ -22,8 +23,20 @@ exports.OTClientDocument = class OTClientDocument extends ot.OTDocument
 		if @conn
 			@conn.register(this)
 			
+	registerListener: (listener) ->
+		@listeners.push(listener)
+		
+	unregisterListener: (listener) ->
+		idx = @listeners.indexOf(listener)
+		if idx != -1
+			@listeners.splice(idx, 1)
+		
 	makeVersion: ->
 		"#{@uid}-#{new Date().getTime()}-#{Math.round(Math.random()*100000)}"
+		
+	applyChange: (change) ->
+		if super(change)
+			l.changeApplied(change) for l in @listeners
 		
 	applyChangeUp: (change) ->
 		@applyChange(change)
@@ -69,3 +82,6 @@ exports.OTClientDocument = class OTClientDocument extends ot.OTDocument
 		l.push(new ot.OpRetain(@length() - end))
 		change = new ot.Change(l, @id, @version, @makeVersion())
 		@applyChangeUp(change)
+		
+exports.Listener = class Listener
+	changeApplied: -> false

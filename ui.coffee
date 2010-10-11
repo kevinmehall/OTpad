@@ -1,14 +1,12 @@
 ot = window.ot
 otclient = window.otclient
 
-
 window.onload =  ->
-	window.editor = document.getElementById("editor")
-	
 	myid = '' + Math.floor(Math.random()*1000000)
 	
 	window.conn = new SocketConn()
-	window.doc = new EditorDocument(document.location.pathname, conn, myid, editor)
+	window.doc = new otclient.OTClientDocument(document.location.pathname, conn, myid)
+	window.editor = new Editor(document.getElementById("editor"), doc)
 
 class SocketConn
 	constructor: ->
@@ -46,10 +44,9 @@ class SocketConn
 			change: change
 	
 	
-class EditorDocument extends otclient.OTClientDocument
-	constructor: (id, conn, uid, div) ->
-		super(id, conn, uid)
-		@div = div
+class Editor extends otclient.Listener
+	constructor: (@div, @doc) ->
+		@doc.registerListener(this)
 		@div.style.whitespace = 'pre'
 		@div.style.position = 'relative'
 		@div.setAttribute('tabindex', 0)
@@ -62,13 +59,13 @@ class EditorDocument extends otclient.OTClientDocument
 				if a == b
 					a-=1
 				if a >= 0
-					@spliceRange(a, b, [])
+					@doc.spliceRange(a, b, [])
 			else if event.keyCode == 46 #delete
 				[a,b] = @caretPosition()
 				if a == b
 					b+=1
 				if a >= 0 and b < @length()
-					@spliceRange(a, b, [])
+					@doc.spliceRange(a, b, [])
 			else if event.keyCode == 13
 				@spliceAtCaret([new ot.OpNewline()])
 			else
@@ -93,10 +90,7 @@ class EditorDocument extends otclient.OTClientDocument
 			setTimeout((=> @spliceAtCaret()), 10) # delay so browser has a chance to copy text to clipboard before it gets removed
 			return true
 			
-		@div.onbeforepaste = (event) =>
-			console.log("obp", event)
-			
-		@update(@state)
+		@changeApplied(@doc.state)
 			
 	caretPosition: ->
 		sel = window.getSelection()
@@ -113,19 +107,13 @@ class EditorDocument extends otclient.OTClientDocument
 		
 	spliceAtCaret: (add) ->
 		[a,b] = @caretPosition()
-		@spliceRange(a, b, add)
+		@doc.spliceRange(a, b, add)
 		@caretCollapsePending = true
 				
 	focus: =>
 		@div.focus()
 		
-		
-	applyChange: (change) ->
-		if super(change)
-			@update(change)
-		
-		
-	update: (change) ->
+	changeApplied: (change) ->
 		[caret1Pos, caret2Pos] = @caretPosition()
 		caret1Pos = change.offsetPoint(caret1Pos)
 		caret2Pos = change.offsetPoint(caret2Pos)
@@ -148,7 +136,7 @@ class EditorDocument extends otclient.OTClientDocument
 		caret2Node = lineDiv
 		caret2NodeOffs = 0
 
-		for i in @state.operations
+		for i in @doc.state.operations
 			switch i.type
 				when 'str'
 					s = document.createElement('span')
