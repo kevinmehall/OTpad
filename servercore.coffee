@@ -32,7 +32,7 @@ exports.OTServerDocument = class OTServerDocument extends ot.OTDocument
 		
 		[up, down] = unmerged.transform(change, @makeVersion()+'t')
 		
-		debug("handleChange: ", change, " unmerged:", unmerged, " up: ", up, " down: ", down)
+		#debug("handleChange: ", change, " unmerged:", unmerged, " up: ", up, " down: ", down)
 		
 		@applyChange(up)
 		

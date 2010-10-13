@@ -129,7 +129,7 @@ socket.on 'connection', (client) ->
 					if msg.toVersion of verifyDB
 						other = verifyDB[msg.toVersion]
 						if msg.hash == other.hash
-							debug("Verify version #{msg.toVersion} OK")
+							#debug("Verify version #{msg.toVersion} OK")
 						else
 							common.error("Verify failed for #{msg.toVersion}, from #{msg.fromVersion} is #{msg.hash}. Other is from #{other.fromVersion} with #{other.hash}")
 					else

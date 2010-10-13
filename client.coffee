@@ -53,7 +53,7 @@ exports.OTClientDocument = class OTClientDocument extends ot.OTDocument
 		@applyChange(change)
 		
 		if @needsAck
-			debug("queuing change", change)
+			#debug("queuing change", change)
 			if not @pendingChanges
 				@pendingChanges = change
 			else
@@ -69,16 +69,16 @@ exports.OTClientDocument = class OTClientDocument extends ot.OTDocument
 			@needsAck = false
 			if @pendingChanges
 				[up, down] = change.transform(@pendingChanges, @makeVersion()+'t')
-				debug("received ack, sent pending changes (xform)", @pendingChanges, up, down)
+				#debug("received ack, sent pending changes (xform)", @pendingChanges, up, down)
 				@applyChange(down)
 				@applyChangeUp(up)
 				@pendingChanges = false
 			else
-				debug("received ack, no pending changes", change, ack)
+				#debug("received ack, no pending changes", change, ack)
 				@applyChange(change)
 		else
 			if @needsAck
-				debug("received change, no ack, ignoring", change)
+				#debug("received change, no ack, ignoring", change)
 			else
 				@applyChange(change)
 		
@@ -141,7 +141,6 @@ exports.SocketIOConnection = class SocketIOConnection
 			docid: @document.id
 			uid: @document.uid
 
-			
 	send: (change) ->
 		@socket.send JSON.stringify
 			docid: change.docid

@@ -16,8 +16,8 @@ exports.OpRetain = class OpRetain extends Operation
 	# Retain operation inserts [count] characters from previous version of the document
 	
 	constructor: (count) ->
-		if count == 0
-			warn("Useless retain")
+		#if count == 0
+		#	warn("Useless retain")
 		@type = 'retain'
 		@count = count
 		
@@ -247,7 +247,6 @@ exports.Change = class Change
 			bop = false
 			
 		version = version || "transform-#{Math.floor(Math.random()*100000)}"
-		debug("transformed to #{version}")
 		return [new Change(bprime, @docid, @toVersion, version), new Change(aprime, @docid, other.toVersion, version)]
 			
 	merge: (other) ->
