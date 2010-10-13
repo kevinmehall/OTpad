@@ -39,7 +39,7 @@ window.onload = function(){
 	
 	conn =   new otclient.SocketIOConnection(8123)
 	doc =    new otclient.OTClientDocument(document.location.pathname, conn, myid)
-	editor = new otui.Editor(document.getElementById("editor"), doc)
+	editor = new otui.Editor(doc, document.getElementById("editor"), true)
 	itest =  new otui.IntegrationTestListener(doc)
 }
 </script>

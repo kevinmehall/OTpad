@@ -299,6 +299,9 @@ exports.deserializeChange = deserializeChange = (c)->
 exports.OTDocument = class OTDocument
 	constructor: (id) ->
 		@id = id
+		@resetState()
+		
+	resetState: ->
 		@version = 'null'
 		@versionHistory = {}
 		@setFromChange(new Change([], @id, 'null', 'null'))

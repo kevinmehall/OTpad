@@ -5,15 +5,17 @@ exports = window.otui = {}
 [debug, warn, error] = [window.debug, window.warn, window.error]
 
 exports.Editor = class Editor extends otclient.Listener
-	constructor: (@div, @doc) ->
+	constructor: (@doc, @div, @ideallyEditable) ->
 		@doc.registerListener(this)
 		@div.style.whitespace = 'pre'
-		@div.style.position = 'relative'
-		@div.setAttribute('tabindex', 0)
-		@div.contentEditable = true			
+		@div.style.position = 'relative'	
 		@caretCollapsePending = false
 		
+		@div.style.backgroundColor = '#ddd'
+		@editable = false
+		
 		@div.onkeydown = (event) =>
+			if not @editable then return
 			if event.keyCode == 8 # backspace
 				[a,b] = @caretPosition()
 				if a == b
@@ -31,9 +33,9 @@ exports.Editor = class Editor extends otclient.Listener
 			else
 				return true
 			return false
-				
-		
+						
 		@div.onkeypress  = (event) =>
+			if not @editable then return
 			keycode = event.keyCode || event.which
 			if keycode >=37 and keycode <= 40 and not event.shiftKey
 				return # fix Firefox
@@ -42,11 +44,13 @@ exports.Editor = class Editor extends otclient.Listener
 			return false
 				
 		@div.onpaste = (event) =>
+			if not @editable then return
 			console.log(event, event.clipboardData.getData('text/plain'))
 			@spliceAtCaret([new ot.OpAddString(event.clipboardData.getData('text/plain'))]) # TODO: handle pasted newlines
 			return false
 			
 		@div.oncut = (event) =>
+			if not @editable then return
 			setTimeout((=> @spliceAtCaret()), 10) # delay so browser has a chance to copy text to clipboard before it gets removed
 			return true
 			
@@ -122,12 +126,35 @@ exports.Editor = class Editor extends otclient.Listener
 						caret2NodeOffs = offset+1
 			offset+=i.length()
 			
-		sel = window.getSelection()
-		range = document.createRange()
-		range.setStart(caret1Node, caret1Pos - caret1NodeOffs)
-		range.setEnd(caret2Node, caret2Pos - caret2NodeOffs)
-		sel.removeAllRanges()
-		sel.addRange(range)
+		try
+			sel = window.getSelection()
+			range = document.createRange()
+			range.setStart(caret1Node, caret1Pos - caret1NodeOffs)
+			range.setEnd(caret2Node, caret2Pos - caret2NodeOffs)
+			sel.removeAllRanges()
+			sel.addRange(range)
+		catch e
+			error("Error setting selection:", e) 
+		
+	makeEditable: ->
+		@div.contentEditable = true
+		@editable = true
+	
+	makeStatic: ->
+		@div.contentEditable = false
+		@editable = false
+		
+	connected: ->
+		if @ideallyEditable
+			@makeEditable()
+		@div.style.backgroundColor = '#fff'
+	
+	disconnected: ->
+		if @ideallyEditable
+			@makeStatic()
+		@div.style.backgroundColor = '#ddd'
+		
+	
 		
 exports.IntegrationTestListener = class IntegrationTestListener extends otclient.Listener
 	constructor: (@doc) ->

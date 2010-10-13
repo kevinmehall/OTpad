@@ -17,13 +17,19 @@ exports.OTClientDocument = class OTClientDocument extends ot.OTDocument
 		@listeners = []
 		@conn = conn
 		@uid = uid
+		@versionCounter = 1
+		@conn.register(this)
+		
+	connected: ->
+		@conn.join()
 		@pendingChanges = false
 		@needsAck = false
-		@versionCounter = 1
+		@receivedFirstChange = false
 		
-		if @conn
-			@conn.register(this)
-			
+	reconnect: ->
+		@resetState()
+		@conn.reconnect()
+				
 	registerListener: (listener) ->
 		@listeners.push(listener)
 		
@@ -37,6 +43,9 @@ exports.OTClientDocument = class OTClientDocument extends ot.OTDocument
 		"#{@uid}-#{@versionCounter}"
 		
 	applyChange: (change) ->
+		if not @receivedFirstChange
+			@receivedFirstChange = yes
+			l.connected() for l in @listeners
 		if super(change)
 			l.changeApplied(change) for l in @listeners
 		
@@ -85,8 +94,14 @@ exports.OTClientDocument = class OTClientDocument extends ot.OTDocument
 		change = new ot.Change(l, @id, @version, @makeVersion())
 		@applyChangeUp(change)
 		
+	disconnected: ->
+		l.disconnected() for l in @listeners
+			
 exports.Listener = class Listener
 	changeApplied: -> false
+	connected: -> false
+	disconnected: -> false
+	connecting: -> false
 	
 exports.SocketIOConnection = class SocketIOConnection
 	constructor: (port) ->
@@ -97,6 +112,8 @@ exports.SocketIOConnection = class SocketIOConnection
 		
 		@socket.on 'connect', =>
 			@connected = true
+			if @document
+				@document.connected()
 			
 		@socket.on 'message', (body) =>
 			msg = JSON.parse(body)
@@ -108,14 +125,22 @@ exports.SocketIOConnection = class SocketIOConnection
 			
 		@socket.on 'disconnect', =>
 			@connected = false
-			console.log('disconnect')
+			@document.disconnected()
+	
+	reconnect: ->
+		@socket.connect()
 		
 	register: (doc) ->
 		@document = doc
+		if @connected
+			@document.connected()
+			
+	join: ->
 		@socket.send JSON.stringify
 			type: 'join'
 			docid: @document.id
 			uid: @document.uid
+
 			
 	send: (change) ->
 		@socket.send JSON.stringify
