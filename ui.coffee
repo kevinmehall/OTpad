@@ -1,51 +1,10 @@
 ot = window.ot
 otclient = window.otclient
 
-window.onload =  ->
-	myid = '' + Math.floor(Math.random()*1000000)
-	
-	window.conn = new SocketConn()
-	window.doc = new otclient.OTClientDocument(document.location.pathname, conn, myid)
-	window.editor = new Editor(document.getElementById("editor"), doc)
-	window.itest = new IntegrationTestListener(doc)
+exports = window.otui = {}
+[debug, warn, error] = [window.debug, window.warn, window.error]
 
-class SocketConn
-	constructor: ->
-		@connected = false
-		@socket = new io.Socket(null, {port: 8123})
-		@socket.connect()
-		@document = false
-		
-		@socket.on 'connect', =>
-			@connected = true
-			
-		@socket.on 'message', (body) =>
-			msg = JSON.parse(body)
-			switch msg.type
-				when 'change'
-					@document.applyChangeDown(ot.deserializeChange(msg.change), msg.acknowlege)
-				else
-					console.log("error", msg)
-			
-		@socket.on 'disconnect', =>
-			@connected = false
-			console.log('disconnect')
-		
-	register: (doc) ->
-		@document = doc
-		@socket.send JSON.stringify
-			type: 'join'
-			docid: @document.id
-			uid: @document.uid
-			
-	send: (change) ->
-		@socket.send JSON.stringify
-			docid: change.docid
-			type: 'change'
-			change: change
-	
-	
-class Editor extends otclient.Listener
+exports.Editor = class Editor extends otclient.Listener
 	constructor: (@div, @doc) ->
 		@doc.registerListener(this)
 		@div.style.whitespace = 'pre'
@@ -170,7 +129,7 @@ class Editor extends otclient.Listener
 		sel.removeAllRanges()
 		sel.addRange(range)
 		
-class IntegrationTestListener extends otclient.Listener
+exports.IntegrationTestListener = class IntegrationTestListener extends otclient.Listener
 	constructor: (@doc) ->
 		@doc.registerListener(this)
 	

@@ -11,7 +11,6 @@
 	border: 1px solid #ccc;
 	font-size: 110%;
 	font-family: monospace;
-	cursor: text;
 	white-space: pre-wrap;
 }
 
@@ -27,12 +26,6 @@
 </head>
 <body>
 
-<script>
-if (!window.console){
-	console = {log:function(a){}}
-}
-</script>
-
 <script src="/socket.io/socket.io.js"></script>
 <script src="md5-min.js"></script>
 <script src="clientcommon.js"></script>
@@ -40,9 +33,18 @@ if (!window.console){
 <script src="client.js"></script>
 <script src='ui.js'></script>
 
+<script>
+window.onload = function(){
+	myid = '' + Math.floor(Math.random()*1000000)
+	
+	conn =   new otclient.SocketIOConnection(8123)
+	doc =    new otclient.OTClientDocument(document.location.pathname, conn, myid)
+	editor = new otui.Editor(document.getElementById("editor"), doc)
+	itest =  new otui.IntegrationTestListener(doc)
+}
+</script>
 
 <div id='editor' class='editor'></div>
-
 
 </body>
 </html>

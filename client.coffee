@@ -87,3 +87,38 @@ exports.OTClientDocument = class OTClientDocument extends ot.OTDocument
 		
 exports.Listener = class Listener
 	changeApplied: -> false
+	
+exports.SocketIOConnection = class SocketIOConnection
+	constructor: (port) ->
+		@connected = false
+		@socket = new io.Socket(null, {port: port})
+		@socket.connect()
+		@document = false
+		
+		@socket.on 'connect', =>
+			@connected = true
+			
+		@socket.on 'message', (body) =>
+			msg = JSON.parse(body)
+			switch msg.type
+				when 'change'
+					@document.applyChangeDown(ot.deserializeChange(msg.change), msg.acknowlege)
+				else
+					console.log("error", msg)
+			
+		@socket.on 'disconnect', =>
+			@connected = false
+			console.log('disconnect')
+		
+	register: (doc) ->
+		@document = doc
+		@socket.send JSON.stringify
+			type: 'join'
+			docid: @document.id
+			uid: @document.uid
+			
+	send: (change) ->
+		@socket.send JSON.stringify
+			docid: change.docid
+			type: 'change'
+			change: change
