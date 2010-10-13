@@ -203,7 +203,7 @@ exports.Change = class Change
 		@toVersion = toVersion
 		@docid = docid
 
-	transform: (other) ->
+	transform: (other, version) ->
 		a = i for i in @operations
 		b = i for i in other.operations
 		aprime = []
@@ -245,8 +245,10 @@ exports.Change = class Change
 				bop = b.shift()
 			bprime.push(bop)
 			bop = false
-		
-		return [new Change(bprime, @docid, @toVersion, other.toVersion+'m'), new Change(aprime, @docid, other.toVersion, other.toVersion+'m')]
+			
+		version = version || "transform-#{Math.floor(Math.random()*100000)}"
+		debug("transformed to #{version}")
+		return [new Change(bprime, @docid, @toVersion, version), new Change(aprime, @docid, other.toVersion, version)]
 			
 	merge: (other) ->
 		outops = []
@@ -327,7 +329,7 @@ exports.OTDocument = class OTDocument
 		
 	changesFromTo: (from, to) ->
 		change = @versionHistory[from]
-		merged = false
+		merged = change
 		while change and change.toVersion != to
 			change = @versionHistory[change.toVersion]
 			if merged

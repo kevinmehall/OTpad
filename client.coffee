@@ -19,6 +19,7 @@ exports.OTClientDocument = class OTClientDocument extends ot.OTDocument
 		@uid = uid
 		@pendingChanges = false
 		@needsAck = false
+		@versionCounter = 1
 		
 		if @conn
 			@conn.register(this)
@@ -32,7 +33,8 @@ exports.OTClientDocument = class OTClientDocument extends ot.OTDocument
 			@listeners.splice(idx, 1)
 		
 	makeVersion: ->
-		"#{@uid}-#{new Date().getTime()}-#{Math.round(Math.random()*100000)}"
+		@versionCounter += 1
+		"#{@uid}-#{@versionCounter}"
 		
 	applyChange: (change) ->
 		if super(change)
@@ -57,8 +59,8 @@ exports.OTClientDocument = class OTClientDocument extends ot.OTDocument
 				error("Received ack for version #{ack}, expected #{@needsAck}")
 			@needsAck = false
 			if @pendingChanges
-				[down, up] = @pendingChanges.transform(change)
-				debug("received ack, sent pending changes", @pendingChanges, up, down)
+				[up, down] = change.transform(@pendingChanges, @makeVersion()+'t')
+				debug("received ack, sent pending changes (xform)", @pendingChanges, up, down)
 				@applyChange(down)
 				@applyChangeUp(up)
 				@pendingChanges = false

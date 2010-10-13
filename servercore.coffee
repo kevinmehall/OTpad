@@ -14,9 +14,11 @@ exports.OTServerDocument = class OTServerDocument extends ot.OTDocument
 	constructor: (docid) ->
 		super(docid)
 		@clients = {}
+		@versionCounter = 1
 		
 	makeVersion: ->
-		"server-#{new Date().getTime()}-#{Math.round(Math.random()*100000)}"
+		@versionCounter += 1
+		"server-#{@versionCounter}"
 		
 	join: (client) ->
 		@clients[client.uid] = client
@@ -28,7 +30,9 @@ exports.OTServerDocument = class OTServerDocument extends ot.OTDocument
 	handleChange: (change, fromUid) ->
 		unmerged = @changesFromTo(change.fromVersion, @version)
 		
-		[up, down] = unmerged.transform(change, unmerged)
+		[up, down] = unmerged.transform(change, @makeVersion()+'t')
+		
+		debug("handleChange: ", change, " unmerged:", unmerged, " up: ", up, " down: ", down)
 		
 		@applyChange(up)
 		

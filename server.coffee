@@ -73,6 +73,7 @@ saveDocument = (doc, callback) ->
 		id: doc.id
 		state: doc.state
 		version: doc.version
+		versionCounter: doc.versionCounter
 
 	fs.writeFile persistDir+doc.id, data, ->
 		sys.log("Saved #{doc.id}")

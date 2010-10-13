@@ -188,8 +188,9 @@ class IntegrationTestListener extends otclient.Listener
 			@testChar = ['.', '#', 'a', 'b', 'c', 'x', 'w', 'r'][Math.floor(Math.random() * 8)]
 		a = Math.floor(Math.random() * @doc.length())
 		b = Math.floor(Math.random() * @doc.length())
-		@doc.spliceRange(Math.min(a,b), Math.max(a,b), [new ot.OpAddString(@testChar)])
+		@doc.spliceRange(Math.min(a,b), Math.min(a,b), [new ot.OpAddString(@testChar)])
 		
 		time = Math.floor(Math.random() * 500)
-		setTimeout((=> @simChanges()), time)
+		if @doc.conn.connected
+			setTimeout((=> @simChanges()), time)
 		
