@@ -11,26 +11,10 @@ common = require('./servercommon')
 servercore = require('./servercore')
 [debug, warn, error] = [common.debug, common.warn, common.error]
 
-server = http.createServer (req, res) ->
-	path = url.parse(req.url).pathname
-	
-	error = (err) ->
-		sys.log("#{path} -  #{err}")
-		res.writeHead(404)
-		res.write("404")
-		res.end()
-	
-	if not checkDocName(path) or path == '/favicon.ico'
-		error("Invalid file")
-		return
-	
-	if path.indexOf('.js') == -1
-		sys.log("Serving page #{path}")
-		path = '/index.html'
-				
+serveStaticFile = (res, path, contentType) ->
 	fs.readFile __dirname + path, (err, data) ->
 		if (err)
-			error(err)
+			serve404(res, path, err)
 		else
 			ctype = 'text/javascript'
 			if path.indexOf('.js')!=1
@@ -38,6 +22,24 @@ server = http.createServer (req, res) ->
 			res.writeHead(200, {'Content-Type': ctype})
 			res.write(data, 'utf8')
 			res.end()
+		
+serve404 = (res, path, msg) ->
+	sys.log("#{path} -  #{msg}")
+	res.writeHead(404)
+	res.write("404")
+	res.end()
+
+server = http.createServer (req, res) ->
+	path = url.parse(req.url).pathname
+	
+	if not checkDocName(path) or path == '/favicon.ico'
+		serve404(res, path, "Invalid file")
+	else if path.indexOf('.js')  != -1
+		serveStaticFile(res, path, 'text/javascript')
+	else
+		serveStaticFile(res, '/pad.html', 'text/html')
+				
+
 
 clients = []
 documents = {}
@@ -63,7 +65,8 @@ getDocument = (docid, callback) ->
 	
 persistDir = 'db'
 
-checkDocName = (name) -> (/^\/[a-zA-Z0-9-_.]+$/).test(name)
+checkDocName = (name) ->
+	(/^\/[a-zA-Z0-9-_.]+$/).test(name)
 
 saveDocument = (doc, callback) ->
 	if not checkDocName(doc.id)
@@ -143,8 +146,8 @@ socket.on 'connection', (client) ->
 	client.on 'disconnect', ->
 		for docid in c.documents
 			doc = documents[docid]
-			doc.leave(c)
-			if not doc.clients.length
+			count = doc.leave(c)
+			if count == 0
 				sys.log("Document #{docid} has no users")
 		clients.splice(clients.indexOf(c), 1)
 		

@@ -14,6 +14,7 @@ exports.OTServerDocument = class OTServerDocument extends ot.OTDocument
 	constructor: (docid) ->
 		super(docid)
 		@clients = {}
+		@clientCount = 0
 		@versionCounter = 1
 		
 	makeVersion: ->
@@ -21,6 +22,7 @@ exports.OTServerDocument = class OTServerDocument extends ot.OTDocument
 		"server-#{@versionCounter}"
 		
 	join: (client) ->
+		@clientCount += 1
 		@clients[client.uid] = client
 		client.socket.send JSON.stringify
 			type: 'change'
@@ -53,3 +55,4 @@ exports.OTServerDocument = class OTServerDocument extends ot.OTDocument
 		
 	leave: (client) ->
 		delete @clients[client.uid]
+		@clientCount -= 1
