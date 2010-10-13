@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+</head>
+<body>
+<form id='createform' method='POST' action='?'>
+<p><strong>Pad name:</strong><br/> http://<span id='hostname'>&lt;host&gt;</span>/<input id='padname' type='text' name='padname' /><input type='submit' name='create' value='Create' /> </p>
+</form>
+<script>
+document.getElementById('hostname').innerHTML = document.location.host
+var docid = document.location.pathname.slice(1)
+if (docid == ''){
+	docid = new Date().getTime()
+}
+document.getElementById('padname').value = docid
+document.getElementById('createform').onsubmit = function(){
+	this.action = '/'+document.getElementById('padname').value
+}
+</script>
+</body>
+</html>

@@ -11,7 +11,8 @@ common = require('./servercommon')
 servercore = require('./servercore')
 [debug, warn, error] = [common.debug, common.warn, common.error]
 
-serveStaticFile = (res, path, contentType) ->
+serveStaticFile = (res, path, contentType, code) ->
+	code ?= 200
 	fs.readFile __dirname + path, (err, data) ->
 		if (err)
 			serve404(res, path, err)
@@ -36,8 +37,21 @@ server = http.createServer (req, res) ->
 		serve404(res, path, "Invalid file")
 	else if path.indexOf('.js')  != -1
 		serveStaticFile(res, path, 'text/javascript')
+	else if path == '/'
+		serveStaticFile(res, '/create_pad.html', 'text/html')
 	else
-		serveStaticFile(res, '/pad.html', 'text/html')
+		getDocument path, (doc) ->
+			if req.method == 'POST'
+				if not doc
+					createDocument(path)
+				# Redirect back to GET version
+				res.writeHead(302, {'Location': path})
+				res.write("Creating...", 'utf8')
+				res.end()
+			else if doc
+				serveStaticFile(res, '/pad.html', 'text/html')
+			else
+				serveStaticFile(res, '/create_pad.html', 'text/html', 404)
 				
 
 
@@ -61,12 +75,12 @@ getDocument = (docid, callback) ->
 			if doc
 				callback(doc)
 			else
-				callback(createDocument(docid))
+				callback(false)
 	
 persistDir = 'db'
 
 checkDocName = (name) ->
-	(/^\/[a-zA-Z0-9-_.]+$/).test(name)
+	(/^\/[a-zA-Z0-9-_.]*$/).test(name)
 
 saveDocument = (doc, callback) ->
 	if not checkDocName(doc.id)
