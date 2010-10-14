@@ -26,7 +26,7 @@ exports.Editor = class Editor extends otclient.Listener
 				[a,b] = @caretPosition()
 				if a == b
 					b+=1
-				if a >= 0 and b < @length()
+				if a >= 0 and b < @doc.length()
 					@doc.spliceRange(a, b, [])
 			else if event.keyCode == 13
 				@spliceAtCaret([new ot.OpNewline()])
@@ -54,7 +54,7 @@ exports.Editor = class Editor extends otclient.Listener
 			setTimeout((=> @spliceAtCaret()), 10) # delay so browser has a chance to copy text to clipboard before it gets removed
 			return true
 			
-		@changeApplied(@doc.state)
+		@div.ot_offset = 0
 			
 	caretPosition: ->
 		sel = window.getSelection()
