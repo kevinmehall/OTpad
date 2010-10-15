@@ -34,8 +34,16 @@ check("Merge revision (1)", doc.text(), 'qaerty')
 doc.applyChange(new ot.Change([new ot.OpRetain(3), new ot.OpAddString('NewEnd'), new ot.OpRemove(3)], 'testdoc', doc.version, makeVersion()))
 check("Merge revision (2)", doc.text(), 'qaeNewEnd')
 
-doc.applyChange(new ot.Change([new ot.OpRetain(6), new ot.OpAddString("ZZZ"), new ot.OpRetain(3)], 'testdoc', doc.version, makeVersion))
+doc.applyChange(new ot.Change([new ot.OpRetain(6), new ot.OpAddString("ZZZ"), new ot.OpRetain(3)], 'testdoc', doc.version, makeVersion()))
 check("Merge revision (3)", doc.text(), 'qaeNewZZZEnd')
+
+ops = [new ot.OpRetain(3), new ot.OpRemove(1)]
+c1 = new ot.Change(ops, 'testdoc', doc.version, makeVersion())
+c2 = new ot.Change(ops, 'testdoc', c1.toVersion, makeVersion())
+c3 = new ot.Change(ops, 'testdoc', c2.toVersion, makeVersion())
+doc.applyChange(c1.merge(c2).merge(c3))
+check("Merged removes", doc.text(), "qaeZZZEnd")
+
 
 
 doc1 = new ot.OTDocument('a')

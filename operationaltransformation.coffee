@@ -75,7 +75,7 @@ exports.OpNewline = class OpNewline extends OpAdd
 	movesNewCursor: -> 1
 	
 	merged: -> this
-	split: -> [false, this]
+	split: -> [this, false]
 	
 		
 exports.OpRemove = class OpRemove extends Operation
@@ -99,7 +99,7 @@ exports.OpRemove = class OpRemove extends Operation
 		else if offset == 0
 			[false, this]
 		else
-			[new OpRemove(offset), new OpRemove(@inserts-offset)]
+			[new OpRemove(offset), new OpRemove(@removes-offset)]
 			
 	
 opMap = {
@@ -204,8 +204,8 @@ exports.Change = class Change
 		@docid = docid
 
 	transform: (other, version) ->
-		a = i for i in @operations
-		b = i for i in other.operations
+		a = @operations.slice(0)
+		b = other.operations.slice(0)
 		aprime = []
 		bprime = []
 		
@@ -251,30 +251,30 @@ exports.Change = class Change
 			
 	merge: (other) ->
 		outops = []
-		baseops = op for op in @operations
+		baseops = @operations.slice(0)
+		otherops = other.operations.slice(0)
 		
-		go =(offset, output) ->
-			i = 0
-			while i<offset and baseops.length
-				op = baseops.shift()
-				i += op.cursorDelta()
-				outops.push(op) if output
-			if i>offset and op
-				outops.pop() if output
-				i -= op.cursorDelta()
-				[a, b] = op.split(offset-i)
-				outops.push(a) if output
-				baseops.unshift(b)
-		
-		for operation in other.operations
-			if operation.type == 'retain'
-				go(operation.count, yes)
+		while baseops.length and otherops.length
+			a = baseops.shift()
+			b = otherops.shift()
+			
+			[a, extra] = a.split(b.length())
+			baseops.unshift(extra) if extra
+			
+			[b, extra] = b.split(a.length())
+			otherops.unshift(extra) if extra
+			
+			if b.type == 'retain'
+				outops.push(a)
+			else if b.type == 'remove' and a.isAdd()
+				#nothing
 			else
-				m = operation.merged()
-				outops.push(m) if m
-				go(operation.removes, no)
+				baseops.unshift(a)
+				outops.push(b)
+			
+		outops = outops.concat(otherops).concat(baseops)
 				
-		return new Change(coalesceOps(outops.concat(baseops)), @docid, @fromVersion, other.toVersion)
+		return new Change(coalesceOps(outops), @docid, @fromVersion, other.toVersion)
 		
 	offsetPoint: (p) ->
 		oldoffset = 0

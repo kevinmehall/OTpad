@@ -83,14 +83,17 @@ exports.OTClientDocument = class OTClientDocument extends ot.OTDocument
 				@applyChange(change)
 		
 	spliceRange: (start, end, insert) ->
-		l = [new ot.OpRetain(start)]
+		l = []
 		
+		if start > 0
+			l.push(new ot.OpRetain(start))
 		if end != start
 			l.push(new ot.OpRemove(end-start))
 		if insert
 			l = l.concat(insert)
-		
-		l.push(new ot.OpRetain(@length() - end))
+		length = @length()
+		if length > end
+			l.push(new ot.OpRetain(length - end))
 		change = new ot.Change(l, @id, @version, @makeVersion())
 		@applyChangeUp(change)
 		
