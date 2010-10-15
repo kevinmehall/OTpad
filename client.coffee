@@ -91,9 +91,6 @@ exports.OTClientDocument = class OTClientDocument extends ot.OTDocument
 			l.push(new ot.OpRemove(end-start))
 		if insert
 			l = l.concat(insert)
-		length = @length()
-		if length > end
-			l.push(new ot.OpRetain(length - end))
 		change = new ot.Change(l, @id, @version, @makeVersion())
 		@applyChangeUp(change)
 		

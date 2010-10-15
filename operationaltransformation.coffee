@@ -266,6 +266,8 @@ exports.Change = class Change
 			
 			if b.type == 'retain'
 				outops.push(a)
+			else if b.type == 'remove' and a.type == 'retain'
+				outops.push(b)
 			else if b.type == 'remove' and a.isAdd()
 				#nothing
 			else
