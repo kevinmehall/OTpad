@@ -44,7 +44,7 @@ exports.OpAdd = class OpAdd extends Operation
 exports.OpAddString = class OpAddString extends OpAdd
 	# AddString operation inserts a string
 	
-	constructor: (addString) ->
+	constructor: (addString, @uid) ->
 		@type = 'str'
 		@addString = addString
 		
@@ -57,8 +57,8 @@ exports.OpAddString = class OpAddString extends OpAdd
 	split: (offset) ->
 		a = @addString.slice(0, offset)
 		b = @addString.slice(offset)
-		a = if a then new OpAddString(a) else false
-		b = if b then new OpAddString(b) else false
+		a = if a then new OpAddString(a, @uid) else false
+		b = if b then new OpAddString(b, @uid) else false
 		return [a, b]
 		
 exports.OpNewline = class OpNewline extends OpAdd
@@ -118,8 +118,8 @@ coalesceOps = (l) ->
 	
 	for i in l
 		if prevop and i.type == prevop.type
-			if i.type == 'str' #TODO: formatting must be the same
-				prevop = new OpAddString(prevop.addString + i.addString)
+			if i.type == 'str' and i.uid == prevop.uid
+				prevop = new OpAddString(prevop.addString + i.addString, i.uid)
 				continue
 			else if i.type == 'retain'
 				prevop = new OpRetain(prevop.count + i.count)

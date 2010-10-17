@@ -40,13 +40,13 @@ exports.Editor = class Editor extends otclient.Listener
 			if keycode >=37 and keycode <= 40 and not event.shiftKey
 				return # fix Firefox
 			if keycode >= 32
-				@spliceAtCaret([new ot.OpAddString(String.fromCharCode(keycode))])
+				@spliceAtCaret([new ot.OpAddString(String.fromCharCode(keycode), @doc.uid)])
 			return false
 				
 		@div.onpaste = (event) =>
 			if not @editable then return
 			console.log(event, event.clipboardData.getData('text/plain'))
-			@spliceAtCaret([new ot.OpAddString(event.clipboardData.getData('text/plain'))]) # TODO: handle pasted newlines
+			@spliceAtCaret([new ot.OpAddString(event.clipboardData.getData('text/plain'), @doc.uid)]) # TODO: handle pasted newlines
 			return false
 			
 		@div.oncut = (event) =>
@@ -107,6 +107,8 @@ exports.Editor = class Editor extends otclient.Listener
 					d = document.createTextNode(i.addString)
 					s.ot_offset=offset
 					s.appendChild(d)
+					if i.uid == @doc.uid
+						s.style.backgroundColor = '#ffa'
 					lineDiv.appendChild(s)
 					if offset<=caret1Pos
 						caret1Node = d
@@ -174,7 +176,7 @@ exports.IntegrationTestListener = class IntegrationTestListener extends otclient
 			@testChar = ['.', '#', 'a', 'b', 'c', 'x', 'w', 'r'][Math.floor(Math.random() * 8)]
 		a = Math.floor(Math.random() * @doc.length())
 		b = Math.floor(Math.random() * @doc.length())
-		@doc.spliceRange(Math.min(a,b), Math.min(a,b), [new ot.OpAddString(@testChar)])
+		@doc.spliceRange(Math.min(a,b), Math.min(a,b), [new ot.OpAddString(@testChar, @doc.uid)])
 		
 		time = Math.floor(Math.random() * 500)
 		if @doc.conn.connected
