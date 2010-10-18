@@ -85,12 +85,20 @@ checkDocName = (name) ->
 saveDocument = (doc, callback) ->
 	if not checkDocName(doc.id)
 		return
-		
+	
+	# avoid saving session info, since they won't exist when restarted
+	users = {}
+	for uid of doc.users
+		users[uid] = 
+			name: doc.users[uid].name
+			color: doc.users[uid].color
+	
 	data = JSON.stringify
 		id: doc.id
 		state: doc.state
 		version: doc.version
 		versionCounter: doc.versionCounter
+		users: users
 
 	fs.writeFile persistDir+doc.id, data, ->
 		sys.log("Saved #{doc.id}")
@@ -142,6 +150,11 @@ socket.on 'connection', (client) ->
 						c.uid = msg.uid
 						c.documents.push(doc.id)
 						doc.join(c)
+				when 'user'
+					for doc in c.documents
+						doc.users[c.uid].color = msg.user.color
+						doc.users[c.uid].name = msg.user.name
+						doc.userChanged(c.uid, c.sessionid)
 				when 'verify'
 					if msg.toVersion of verifyDB
 						other = verifyDB[msg.toVersion]

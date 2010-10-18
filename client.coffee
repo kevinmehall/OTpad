@@ -19,6 +19,7 @@ exports.OTClientDocument = class OTClientDocument extends ot.OTDocument
 		@uid = uid
 		@versionCounter = 1
 		@conn.register(this)
+		@users = {}
 		
 	connected: ->
 		@conn.join()
@@ -94,6 +95,11 @@ exports.OTClientDocument = class OTClientDocument extends ot.OTDocument
 		change = new ot.Change(l, @id, @version, @makeVersion())
 		@applyChangeUp(change)
 		
+	usersChanged: (users) ->
+		for uid of users
+			@users[uid] = users[uid]
+		l.usersChanged() for l in @listeners
+		
 	disconnected: ->
 		l.disconnected() for l in @listeners
 			
@@ -102,6 +108,7 @@ exports.Listener = class Listener
 	connected: -> false
 	disconnected: -> false
 	connecting: -> false
+	usersChanged: -> false
 	
 exports.SocketIOConnection = class SocketIOConnection
 	constructor: (port) ->
@@ -120,6 +127,8 @@ exports.SocketIOConnection = class SocketIOConnection
 			switch msg.type
 				when 'change'
 					@document.applyChangeDown(ot.deserializeChange(msg.change), msg.acknowlege)
+				when 'users'
+					@document.usersChanged(msg.users)
 				else
 					console.log("error", msg)
 			
@@ -146,6 +155,11 @@ exports.SocketIOConnection = class SocketIOConnection
 			docid: change.docid
 			type: 'change'
 			change: change
+			
+	changeUser: (user) ->
+		@socket.send JSON.stringify
+			type: 'user'
+			user: @user
 			
 exports.get_uid = (cookie_name) ->
 	cookies = document.cookie.split(';')

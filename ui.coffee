@@ -76,11 +76,16 @@ exports.Editor = class Editor extends otclient.Listener
 				
 	focus: =>
 		@div.focus()
-		
+	
+	usersUpdated: ->
+		@changeAppled()
+	
 	changeApplied: (change) ->
 		[caret1Pos, caret2Pos] = @caretPosition()
-		caret1Pos = change.offsetPoint(caret1Pos)
-		caret2Pos = change.offsetPoint(caret2Pos)
+		
+		if change
+			caret1Pos = change.offsetPoint(caret1Pos)
+			caret2Pos = change.offsetPoint(caret2Pos)
 		
 		if @caretCollapsePending
 			@caretCollapsePending = false
@@ -107,8 +112,10 @@ exports.Editor = class Editor extends otclient.Listener
 					d = document.createTextNode(i.addString)
 					s.ot_offset=offset
 					s.appendChild(d)
-					if i.uid == @doc.uid
-						s.style.backgroundColor = '#ffa'
+					
+					if @doc.users[i.uid]
+						debug(i.uid, @doc.users)
+						s.style.backgroundColor = @doc.users[i.uid].color
 					lineDiv.appendChild(s)
 					if offset<=caret1Pos
 						caret1Node = d

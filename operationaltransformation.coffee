@@ -9,6 +9,8 @@ if require?
 else
 	[debug, warn, error] = [window.debug, window.warn, window.error]
 
+exports.COLORS = ['#ffa', '#faa', '#aaf', '#afa', '#aff', '#faf']
+
 exports.Operation = class Operation
 	isAdd: -> undefined
 
