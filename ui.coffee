@@ -5,7 +5,7 @@ exports = window.otui = {}
 [debug, warn, error] = [window.debug, window.warn, window.error]
 
 exports.Editor = class Editor extends otclient.Listener
-	constructor: (@doc, @div, @ideallyEditable) ->
+	constructor: (@doc, @div, @ideallyEditable, @highlightUsers) ->
 		@doc.registerListener(this)
 		@div.style.whitespace = 'pre'
 		@div.style.position = 'relative'	
@@ -113,9 +113,9 @@ exports.Editor = class Editor extends otclient.Listener
 					s.ot_offset=offset
 					s.appendChild(d)
 					
-					if @doc.users[i.uid]
-						debug(i.uid, @doc.users)
+					if @highlightUsers and @doc.users[i.uid]
 						s.style.backgroundColor = @doc.users[i.uid].color
+						
 					lineDiv.appendChild(s)
 					if offset<=caret1Pos
 						caret1Node = d
