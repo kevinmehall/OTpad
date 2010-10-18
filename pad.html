@@ -34,7 +34,7 @@
 
 <script>
 window.onload = function(){
-	myid = '' + Math.floor(Math.random()*1000000)
+	myid = '' + otclient.get_uid('ot_user')
 	
 	conn =   new otclient.SocketIOConnection(8123)
 	doc =    new otclient.OTClientDocument(document.location.pathname, conn, myid)

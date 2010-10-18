@@ -40,7 +40,7 @@ exports.OTClientDocument = class OTClientDocument extends ot.OTDocument
 		
 	makeVersion: ->
 		@versionCounter += 1
-		"#{@uid}-#{@versionCounter}"
+		"#{@uid}-#{@conn.socket.transport.sessionid}-#{@versionCounter}"
 		
 	applyChange: (change) ->
 		if not @receivedFirstChange
@@ -146,3 +146,16 @@ exports.SocketIOConnection = class SocketIOConnection
 			docid: change.docid
 			type: 'change'
 			change: change
+			
+exports.get_uid = (cookie_name) ->
+	cookies = document.cookie.split(';')
+	for cookie in cookies
+		parts = cookie.split('=')
+		if parts[0].replace(/^\s+|\s+$/g, '') == cookie_name
+			return parts[1].replace(/^\s+|\s+$/g, '')
+	# No cookie found. Make one
+	uid = '' + Math.floor(Math.random()*1000000000)
+	document.cookie = "#{cookie_name}=#{uid}"
+	return uid
+	
+	

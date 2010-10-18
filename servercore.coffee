@@ -23,13 +23,13 @@ exports.OTServerDocument = class OTServerDocument extends ot.OTDocument
 		
 	join: (client) ->
 		@clientCount += 1
-		@clients[client.uid] = client
+		@clients[client.sessionid] = client
 		client.socket.send JSON.stringify
 			type: 'change'
 			docId: @id
 			change: @state
 		
-	handleChange: (change, fromUid) ->
+	handleChange: (change, fromSession) ->
 		unmerged = @changesFromTo(change.fromVersion, @version)
 		
 		[up, down] = unmerged.transform(change, @makeVersion()+'t')
@@ -44,7 +44,7 @@ exports.OTServerDocument = class OTServerDocument extends ot.OTDocument
 				change: up
 			
 		for i of @clients
-			if i != fromUid # don't send back to author
+			if i != fromSession # don't send back to author
 				@clients[i].socket.send(msg)
 			else
 				@clients[i].socket.send JSON.stringify
@@ -54,5 +54,5 @@ exports.OTServerDocument = class OTServerDocument extends ot.OTDocument
 					acknowlege: change.toVersion
 		
 	leave: (client) ->
-		delete @clients[client.uid]
+		delete @clients[client.sessionid]
 		@clientCount -= 1

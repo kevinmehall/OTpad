@@ -126,7 +126,7 @@ socket = io.listen(server)
 verifyDB = {}
 
 socket.on 'connection', (client) ->
-	c = {socket: client, documents:[]}
+	c = {socket: client, documents:[], sessionid:client.sessionId}
 	clients.push(c)
 	
 	client.on 'message', (body) ->
@@ -135,7 +135,7 @@ socket.on 'connection', (client) ->
 			switch msg.type
 				when 'change'
 					doc = documents[msg.docid]
-					doc.handleChange(ot.deserializeChange(msg.change), c.uid)
+					doc.handleChange(ot.deserializeChange(msg.change), c.sessionid)
 					markDirty(doc)
 				when 'join'
 					getDocument msg.docid, (doc) ->
